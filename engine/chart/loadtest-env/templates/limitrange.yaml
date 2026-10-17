@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: loadtest-defaults
+  labels:
+    {{- include "loadtest-env.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      default:
+        {{- toYaml .Values.platform.limitRange.default | nindent 8 }}
+      defaultRequest:
+        {{- toYaml .Values.platform.limitRange.default | nindent 8 }}
+      max:
+        {{- toYaml .Values.platform.limitRange.max | nindent 8 }}

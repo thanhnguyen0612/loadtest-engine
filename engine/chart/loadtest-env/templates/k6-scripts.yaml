@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-scripts
+  labels:
+    {{- include "loadtest-env.labels" . | nindent 4 }}
+data:
+  {{- range $file, $src := .Values.k6.files }}
+  {{ $file | quote }}: {{ $src | quote }}
+  {{- end }}
