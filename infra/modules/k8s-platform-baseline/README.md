@@ -14,10 +14,12 @@ It creates:
   even if the CI runner was killed mid-test. Its ServiceAccount may only `list` and
   `delete` namespaces. Runs as UID 65534 with a read-only root filesystem, no
   capabilities, `RuntimeDefault` seccomp and explicit resources.
-- **Image admission policy** — a `ValidatingAdmissionPolicy` + binding
-  (`admissionregistration.k8s.io/v1`, Kubernetes ≥ 1.30) that rejects Pod `CREATE` in
-  namespaces labelled `<managed_label>=true` unless every container and init container
-  image starts with one of `allowed_image_prefixes`.
+- **Image admission policy**: a `ValidatingAdmissionPolicy` and binding
+  (`admissionregistration.k8s.io/v1`, Kubernetes ≥ 1.30). It applies to Pod `CREATE`/`UPDATE`
+  and `pods/ephemeralcontainers` in namespaces labelled `<managed_label>=true`, and
+  rejects any container, init container or ephemeral container image that is not allowed.
+  Entries of `allowed_image_prefixes` ending in `/` are registry prefixes. An entry with a
+  tag (`:` after the last `/`) must match exactly, or as `<entry>@sha256:<digest>`.
 
 ## Inputs
 

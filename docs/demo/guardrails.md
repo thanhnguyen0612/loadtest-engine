@@ -28,20 +28,39 @@ Full reports: [summary-pass.md](summary-pass.md), [summary-fail.md](summary-fail
 
 ## 1. Admission policy: only approved images in test namespaces
 
+The policy checks Pod CREATE and UPDATE and ephemeral containers (`kubectl debug`).
+Registry entries ending in `/` are prefixes. Pinned platform images must match exactly,
+optionally followed by `@sha256:<digest>`.
+
 ```console
 $ kubectl create ns lt-probe --dry-run=client -o yaml \
     | kubectl label --local -f - loadtest.platform/managed=true -o yaml \
     | kubectl apply -f - \
   && kubectl -n lt-probe run bad --image=docker.io/library/nginx
 namespace/lt-probe created
-Error from server (Forbidden): pods "bad" is forbidden: ValidatingAdmissionPolicy 'loadtest-allowed-images' with binding 'loadtest-allowed-images' denied request: image(s) not allowed in load-test namespaces: docker.io/library/nginx; allowed prefixes: localhost:5001/, docker.io/library/postgres:16-alpine, docker.io/wiremock/wiremock:3.9.1, docker.io/grafana/k6:0.54.0
+Error from server (Forbidden): pods "bad" is forbidden: ValidatingAdmissionPolicy 'loadtest-allowed-images' with binding 'loadtest-allowed-images' denied request: image(s) not allowed in load-test namespaces: docker.io/library/nginx; allowed: localhost:5001/, docker.io/library/postgres:16-alpine, docker.io/wiremock/wiremock:3.9.1, docker.io/grafana/k6:0.54.0
 
-$ kubectl -n lt-probe run good --image=docker.io/grafana/k6:0.54.0 --dry-run=server -o name
-pod/good
+# a lookalike tag of a pinned platform image is rejected
+$ kubectl -n lt-probe run evil --image=docker.io/library/postgres:16-alpine-evil
+Error from server (Forbidden): pods "evil" is forbidden: ValidatingAdmissionPolicy 'loadtest-allowed-images' with binding 'loadtest-allowed-images' denied request: image(s) not allowed in load-test namespaces: docker.io/library/postgres:16-alpine-evil; allowed: localhost:5001/, docker.io/library/postgres:16-alpine, docker.io/wiremock/wiremock:3.9.1, docker.io/grafana/k6:0.54.0
+
+# the exact pinned image, or the same image pinned by digest, is admitted
+$ kubectl -n lt-probe run pinned --image=docker.io/library/postgres:16-alpine --dry-run=server -o name
+pod/pinned
+$ kubectl -n lt-probe run digest --image=docker.io/library/postgres:16-alpine@sha256:0000…0000 --dry-run=server -o name
+pod/digest
+
+# an ephemeral debug container with an unapproved image is rejected
+$ kubectl -n lt-probe run own --image=localhost:5001/sample-api:dev --command -- sleep 3600
+pod/own created
+$ kubectl -n lt-probe debug own --image=docker.io/library/busybox -- true
+Error from server (Forbidden): pods "own" is forbidden: ValidatingAdmissionPolicy 'loadtest-allowed-images' with binding 'loadtest-allowed-images' denied request: image(s) not allowed in load-test namespaces: docker.io/library/busybox; allowed: localhost:5001/, docker.io/library/postgres:16-alpine, docker.io/wiremock/wiremock:3.9.1, docker.io/grafana/k6:0.54.0
 
 $ kubectl delete ns lt-probe
 namespace "lt-probe" deleted
 ```
+
+Normal runs are unaffected. The section 4 runs below both PASS with this policy in place.
 
 ## 2. Network isolation: no egress outside the test namespace
 
@@ -84,34 +103,45 @@ lt-expired-demo2      Terminating   5s
 lt-sample-api-net-1   Active        51s
 ```
 
-## 4. Concurrency cap: the 4th test waits for a slot (`MAX_CONCURRENT_TESTS = 3`)
+## 4. Concurrency cap: a test waits for a free slot
 
-Four runs started 3 s apart:
+The cap defaults to `MAX_CONCURRENT_TESTS = 3`. You can override it with
+`LOADTEST_MAX_CONCURRENT_TESTS` (Makefile: `MAX_CONCURRENT=`). This laptop's single node
+(4 CPU allocatable, 1.2 CPU already requested by system pods) has about **2.8 CPU free**.
+One test needs **2 CPU** at peak (service 250m + Postgres 500m + WireMock 250m + k6
+1000m), so only one test fits at a time. The demo therefore runs with a cap of 1, with
+two runs started 3 s apart:
 
 ```console
-$ for i in 1 2 3 4; do make loadtest RUN_ID=conc-$i > conc-$i.log 2>&1 & sleep 3; done; wait
+$ make loadtest MAX_CONCURRENT=1 RUN_ID=cap-1 > cap-1.log 2>&1 &
+$ sleep 3; make loadtest MAX_CONCURRENT=1 RUN_ID=cap-2 > cap-2.log 2>&1 &
+$ wait
 
-$ cat conc-4.log
-.venv/bin/loadtest run services/sample-api/loadtest/loadtest.yaml --image localhost:5001/sample-api:dev --run-id conc-4 --out results/conc-4
-3 tests running (max 3); waiting for a slot...
-3 tests running (max 3); waiting for a slot...      # repeated every 15 s, 7 times
+$ cat cap-2.log
+LOADTEST_MAX_CONCURRENT_TESTS=1 .venv/bin/loadtest run services/sample-api/loadtest/loadtest.yaml --image localhost:5001/sample-api:dev --run-id cap-2 --out results/cap-2
+1 tests running (max 1); waiting for a slot...
+1 tests running (max 1); waiting for a slot...      # repeated every 15 s, 7 times
 ...
+## ✅ PASS — sample-api
+...
+| ✅ | p95 latency | < 300 ms | 86 ms |
 
-# namespaces over time (sampled every 10 s)
-13:02:01  lt-sample-api-conc-1:Active lt-sample-api-conc-2:Active lt-sample-api-conc-3:Active
-13:03:32  lt-sample-api-conc-1:Terminating lt-sample-api-conc-2:Active lt-sample-api-conc-3:Active
-13:03:42  lt-sample-api-conc-2:Terminating lt-sample-api-conc-3:Active lt-sample-api-conc-4:Active   # 4th admitted
+$ head -1 results/cap-1/summary.md
+## ✅ PASS — sample-api
+
+# managed namespaces over time (sampled every 10 s)
+13:15:31  cap-1 started
+13:15:34  cap-2 started   (waits)
+13:15:37  lt-sample-api-cap-1:Active
+13:17:18  lt-sample-api-cap-1:Terminating
+13:17:28  lt-sample-api-cap-2:Active      # second run admitted once the first finished
+13:18:59  cap-2 done; no managed namespaces left
 ```
 
-conc-4 only created its namespace after conc-1 finished.
-
-**Known limit of this single 4-CPU node:** each test requests 2 CPU at peak (service
-250m + Postgres 500m + WireMock 250m + k6 1000m), while the node has 4 CPU
-allocatable with 1.2 CPU already requested by system pods, which leaves 2.8 CPU. Three
-concurrent tests (6 CPU) do not fit, so in this demo the k6 pods stayed `Pending` until
-their Job deadline and all four runs ended `## ⚠️ ERROR` (exit 3, "no results collected").
-On a right-sized cluster (or the cloud node pool) the cap and the capacity are aligned.
-On this laptop, run one test at a time.
+With the default cap of 3 on this node, three environments are admitted at once, but
+their k6 pods stay `Pending` for lack of CPU until the Job deadline. The run then
+reports `## ⚠️ ERROR`, and the report lists the pod states. Set the cap to what the
+cluster can actually hold.
 
 ## 5. Threshold failure: exit 1 and a FAIL report
 
