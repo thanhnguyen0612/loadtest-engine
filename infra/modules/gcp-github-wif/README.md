@@ -9,6 +9,9 @@ account keys).
   platform's reusable workflow at its protected ref, are rejected outright. A service repo's
   own workflow, or a PR that edits a copy of the platform workflow, cannot get cluster
   credentials, so it cannot skip the in-namespace guardrails the platform client creates.
+  This only holds if that workflow checks out the platform code from a fixed repository and
+  ref on the GKE path (not from caller inputs); see the comment at the top of
+  `.github/workflows/loadtest-reusable.yml`.
 - Service account `loadtest-github` with only `roles/container.developer`, granted in the
   load-test project (which holds nothing but this cluster).
 - `roles/iam.workloadIdentityUser` for the `principalSet` of each repository in

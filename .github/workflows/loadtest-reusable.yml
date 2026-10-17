@@ -30,7 +30,10 @@
 #       cluster_name: ${{ vars.LOADTEST_CLUSTER }}
 #       location: ${{ vars.LOADTEST_REGION }}
 #
-# drop the image-artifact steps (the image is already in Artifact Registry), and add
+# hard-code the "Check out platform" step to `repository: <org>/loadtest-engine` and the same
+# protected ref the WIF condition pins (drop the platform-repository/platform-ref inputs: once
+# the job holds cloud credentials, the caller must not choose the platform code), drop the
+# image-artifact steps (the image is already in Artifact Registry), and add
 #   --scheduling .platform/engine/chart/loadtest-env/values-gke.example.yaml
 # to `loadtest run` so every pod lands on the tainted spot load-test node pool.
 name: loadtest-reusable
