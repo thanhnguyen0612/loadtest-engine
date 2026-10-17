@@ -95,3 +95,35 @@ def test_html_contains_same_numbers():
 def test_html_error_variant_escapes():
     html = render_html(None, plan, est, error="<b>boom</b>")
     assert "ERROR" in html and "&lt;b&gt;boom" in html and "<b>boom" not in html
+
+
+def test_extract_summary_non_object_raises():
+    with pytest.raises(MissingResults):
+        extract_summary(f"{SUMMARY_BEGIN}\n[1]\n{SUMMARY_END}")
+
+
+def test_build_result_empty_metrics_raises_missing_results():
+    with pytest.raises(MissingResults, match="http_req_duration"):
+        build_result({"metrics": {}}, plan, None, None)
+
+
+def test_build_result_missing_value_key_raises_missing_results():
+    broken = json.loads(json.dumps(PASS))
+    del broken["metrics"]["http_req_duration"]["values"]["p(95)"]
+    with pytest.raises(MissingResults, match="p\\(95\\)"):
+        build_result(broken, plan, None, None)
+
+
+def test_build_result_threshold_without_ok_raises_missing_results():
+    broken = json.loads(json.dumps(PASS))
+    broken["metrics"]["http_req_duration"]["thresholds"] = {"p(95)<500": {}}
+    with pytest.raises(MissingResults):
+        build_result(broken, plan, None, None)
+
+
+def test_build_result_no_thresholds_raises_missing_results():
+    bare = json.loads(json.dumps(PASS))
+    for m in bare["metrics"].values():
+        m.pop("thresholds", None)
+    with pytest.raises(MissingResults, match="thresholds"):
+        build_result(bare, plan, None, None)
