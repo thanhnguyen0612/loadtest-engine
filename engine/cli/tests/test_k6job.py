@@ -94,3 +94,10 @@ def test_runner_aborts_load_phase_above_request_rate_cap():
     assert "__ENV.MAX_RPS" in src
     assert "http_reqs" in src and "abortOnFail: true" in src
     assert "rate<=${MAX_RPS}" in src
+
+
+def test_runner_applies_request_rate_cap_in_smoke_phase_too():
+    assert envmap(k6_job(plan, "smoke"))["MAX_RPS"] == str(limits.MAX_RPS)
+    src = (K6_DIR / "runner.js").read_text()
+    smoke = src[src.index("const smoke"):src.index("const load")]
+    assert "http_reqs: [rateGuard]" in smoke

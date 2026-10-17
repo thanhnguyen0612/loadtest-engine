@@ -7,6 +7,10 @@ const P95_MS = Number(__ENV.P95_MS || 500);
 const ERROR_RATE = Number(__ENV.ERROR_RATE || 0.01);
 const MAX_RPS = Number(__ENV.MAX_RPS || 500);
 
+// Platform cap on requests/s (not iterations/s): a custom scenario that sends several
+// requests per iteration is aborted once its average request rate exceeds the cap.
+const rateGuard = { threshold: `rate<=${MAX_RPS}`, abortOnFail: true, delayAbortEval: '10s' };
+
 const smoke = {
   scenarios: {
     smoke: {
@@ -18,7 +22,7 @@ const smoke = {
       maxVUs: 20,
     },
   },
-  thresholds: { http_req_failed: ['rate<0.05'] },
+  thresholds: { http_req_failed: ['rate<0.05'], http_reqs: [rateGuard] },
 };
 
 const load = {
@@ -39,9 +43,7 @@ const load = {
   thresholds: {
     http_req_duration: [`p(95)<${P95_MS}`],
     http_req_failed: [`rate<${ERROR_RATE}`],
-    // Platform cap on requests/s (not iterations/s): a custom scenario that sends several
-    // requests per iteration is aborted once its average request rate exceeds the cap.
-    http_reqs: [{ threshold: `rate<=${MAX_RPS}`, abortOnFail: true, delayAbortEval: '10s' }],
+    http_reqs: [rateGuard],
   },
 };
 

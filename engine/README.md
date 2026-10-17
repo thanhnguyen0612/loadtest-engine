@@ -163,7 +163,7 @@ The contract:
 - The platform's `runner.js` imports it and owns everything else: the arrival rate, the stages, the thresholds and the summary. `options` or `handleSummary` exported by your file are ignored, so you cannot change the load shape.
 - Available environment variables: `BASE_URL` (for example `http://sample-api:8080`), `ENDPOINTS` (your endpoints as JSON) and `PHASE` (`smoke` or `load`). Your scenario also runs in the smoke phase.
 - The rate is in **iterations** per second. The default scenario sends one request per iteration, so rps equals requests per second. A custom iteration with two requests sends twice the target rps (the example below reported 80 req/s at size S).
-- **Request-rate guard:** in the load phase the runner also has a threshold `http_reqs rate<=500` (the platform cap) with `abortOnFail`. If your scenario's average request rate goes above 500 req/s, k6 aborts the run (checked after the first 10 s) and the report shows a failed `request rate (platform cap)` check, exit 1.
+- **Request-rate guard:** in the smoke and load phases the runner also has a threshold `http_reqs rate<=500` (the platform cap) with `abortOnFail`. If your scenario's average request rate goes above 500 req/s, k6 aborts the run (checked after the first 10 s) and the report shows a failed `request rate (platform cap)` check, exit 1.
 - You can import k6 modules (`k6/http`, `k6`, ...) and `./endpoints.js`. Other local files are not shipped.
 - Thresholds use `http_req_duration` and `http_req_failed`, so a response with status ≥ 400 counts as an error. `check()` results appear in the raw summary but do not decide pass/fail.
 
