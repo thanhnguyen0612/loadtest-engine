@@ -157,3 +157,42 @@ $ make loadtest RUN_ID=fail-1 CONFIG=/tmp/fail-cfg/loadtest.yaml
 ...
 make: *** [loadtest] Error 1          # the CLI exited 1
 ```
+
+## 6. Request-rate guard: a custom scenario above 500 req/s is aborted
+
+The load shape caps **iterations**/s. A custom `scenario.js` that sends two requests per
+iteration at `target_rps: 300` asks for 600 req/s. The platform `runner.js` adds a
+`http_reqs` threshold `rate<=500` (`limits.MAX_RPS`) with `abortOnFail`, so k6 stops the run.
+
+A copy of the config dir with `size: null`, `target_rps: 300`, `duration_s: 60`,
+`scenario: scenario.js` and the service at `cpu: 1000m`:
+
+```js
+export default function () {
+  http.get(`${__ENV.BASE_URL}/items?limit=1`);
+  http.get(`${__ENV.BASE_URL}/items?limit=1`);
+}
+```
+
+At the default 250m the service saturates at about 220 req/s (p95 2.6 s), so the guard
+never trips and the run fails on p95 instead. 1000m is what the laptop can hold next to
+Postgres, WireMock and k6 (2.75 CPU of ~2.8 free); at that size the service serves the load:
+
+```console
+$ make loadtest MAX_CONCURRENT=1 RUN_ID=rps-guard-2 CONFIG=/tmp/flood/loadtest.yaml
+## ❌ FAIL — sample-api
+...
+| ❌ | request rate (platform cap) | <= 500/s | 505.1/s |
+| ✅ | p95 latency | < 300 ms | 43 ms |
+| ✅ | error rate | < 1% | 0.00% |
+...
+make: *** [loadtest] Error 1          # the CLI exited 1
+
+# k6-summary.json: the run stopped at 38 s of the planned 60 s
+http_reqs   count 19190, rate 505.1/s   {"rate<=500": {"ok": false}}
+iterations  count 9589,  rate 252.4/s
+state.testRunDurationMs  37990
+```
+
+A normal run reports the guard as a passing row:
+`| ✅ | request rate (platform cap) | <= 500/s | 40.0/s |`.

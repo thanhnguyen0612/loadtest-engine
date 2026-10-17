@@ -16,14 +16,14 @@ The work went through four stages. Each one produced a file that the next stage 
    - dispatched a **fresh implementer subagent** with only that task's brief and the global constraints;
    - then dispatched a separate **reviewer subagent** that checked the diff for spec compliance and code quality;
    - ran fix rounds with scoped re-reviews until the reviewer had no open findings;
-   - kept a **progress ledger** (git-ignored) with a pre-flight scan of how tasks connect, and numbered **rulings** (R1–R18) for gaps the plan did not settle. Examples: R1, `loadtest teardown` takes `--config` and `--run-id` because the workflow does not know the namespace; R12, document that the service image needs a numeric non-root `USER` rather than inspect images; R14, make the concurrency cap overridable because a laptop holds only one test.
-   - A final review covers the whole branch.
+   - kept a **progress ledger** (git-ignored) with a pre-flight scan of how tasks connect, and numbered **rulings** (R1–R19) for gaps the plan did not settle. Examples: R1, `loadtest teardown` takes `--config` and `--run-id` because the workflow does not know the namespace; R12, document that the service image needs a numeric non-root `USER` rather than inspect images; R14, make the concurrency cap overridable because a laptop holds only one test.
+   - A final whole-branch review is run after all tasks.
 
 ### Calls made by Claude during the build
 
 These were not discussed with me up front; the controller recorded them in the spec or the ledger for review:
 
-- k6 runs inside the cluster as a Job. The platform-owned `runner.js` controls the load options, so a custom script cannot get past the caps. A default scenario means teams need no JavaScript.
+- k6 runs inside the cluster as a Job. The platform-owned `runner.js` controls the load options (iterations/s), plus a 500 req/s abort guard for custom scripts that send several requests per iteration (added after review, ruling R19). A default scenario means teams need no JavaScript.
 - Namespace per test with labels and an `expires-at` annotation; a janitor CronJob for runs that are killed.
 - A ValidatingAdmissionPolicy that allows only the local registry or the exact pinned platform images.
 - The concurrency cap counts namespaces in the cluster; GitHub concurrency groups only hold one pending run, so they cannot be the cap.

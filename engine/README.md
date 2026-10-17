@@ -149,7 +149,9 @@ loadtest/stubs/payments-api/charge.json
 }
 ```
 
-`latency_ms` is added to every mapping as `fixedDelayMilliseconds`, unless the mapping sets its own delay. If the directory is missing or empty, the stub answers every request with `200 {"ok": true}`.
+`latency_ms` is added to every mapping as `fixedDelayMilliseconds`, unless the mapping already sets `fixedDelayMilliseconds` (other WireMock delay types are not detected, so the two would add up).
+
+If you leave out `stubs` and the default `stubs/<name>/` directory is absent or has no `*.json` files, the stub answers every request with `200 {"ok": true}`. If you set `stubs` to a directory that does not exist, validation fails (exit 2).
 
 ## 9. Custom scenario (`scenario.js`)
 
@@ -158,9 +160,10 @@ Most services do not need one. The default scenario sends requests to your `endp
 The contract:
 
 - The file is an ES module whose **default export is a function** that performs one iteration.
-- The platform's `runner.js` imports it and owns everything else: the arrival rate, the stages, the thresholds and the summary. `options` or `handleSummary` exported by your file are ignored, so you cannot raise the load above the caps.
+- The platform's `runner.js` imports it and owns everything else: the arrival rate, the stages, the thresholds and the summary. `options` or `handleSummary` exported by your file are ignored, so you cannot change the load shape.
 - Available environment variables: `BASE_URL` (for example `http://sample-api:8080`), `ENDPOINTS` (your endpoints as JSON) and `PHASE` (`smoke` or `load`). Your scenario also runs in the smoke phase.
 - The rate is in **iterations** per second. The default scenario sends one request per iteration, so rps equals requests per second. A custom iteration with two requests sends twice the target rps (the example below reported 80 req/s at size S).
+- **Request-rate guard:** in the load phase the runner also has a threshold `http_reqs rate<=500` (the platform cap) with `abortOnFail`. If your scenario's average request rate goes above 500 req/s, k6 aborts the run (checked after the first 10 s) and the report shows a failed `request rate (platform cap)` check, exit 1.
 - You can import k6 modules (`k6/http`, `k6`, ...) and `./endpoints.js`. Other local files are not shipped.
 - Thresholds use `http_req_duration` and `http_req_failed`, so a response with status ≥ 400 counts as an error. `check()` results appear in the raw summary but do not decide pass/fail.
 
