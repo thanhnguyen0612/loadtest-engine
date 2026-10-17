@@ -22,3 +22,8 @@ PRESETS: dict[str, tuple[int, int]] = {
     "M": (150, 300),
     "L": (500, 900),
 }
+
+# Platform component sizes (cpu millicores, memory Mi); used for pod limits and the quota.
+POSTGRES_CPU_M, POSTGRES_MEMORY_MI = 500, 512
+STUB_CPU_M, STUB_MEMORY_MI = 250, 256
+K6_CPU_M, K6_MEMORY_MI = 1000, 1024
