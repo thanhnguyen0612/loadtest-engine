@@ -126,7 +126,7 @@ Follow [docs/demo/guardrails.md](docs/demo/guardrails.md) in order. It has the e
 2. **Admission policy.** In a labelled probe namespace: `nginx` rejected, look-alike tag `postgres:16-alpine-evil` rejected, the exact pinned image (and its digest form) admitted, `kubectl debug` with `busybox` rejected.
 3. **Network isolation.** During a run, the service cannot reach `example.com` but can reach its WireMock stub.
 4. **Janitor.** Create a managed namespace with a past `expires-at`, run `make janitor-now`: it is deleted and the running test is left alone.
-5. **Concurrency cap.** Two runs with `MAX_CONCURRENT=1` started 3 s apart: the second waits ("1 tests running (max 1); waiting for a slot...") and starts once the first is done.
+5. **Concurrency cap.** Two runs with `MAX_CONCURRENT=1` started 3 s apart: the second waits ("1 test running (max 1); waiting for a slot...") and starts once the first is done.
 6. **Threshold failure.** A copy of the config with `p95_ms: 1`: FAIL report, exit 1.
 7. **Request-rate guard.** A custom scenario with two requests per iteration at 300 iterations/s: k6 aborts at 505 req/s, the `request rate (platform cap)` check fails, exit 1.
 

@@ -98,7 +98,8 @@ def wait_for_capacity(runner: Runner, max_tests: int, timeout_s: int = 600, poll
             raise CapacityError(
                 f"platform at capacity: {active} tests running (max {max_tests}); "
                 f"gave up after waiting {waited}s")
-        print(f"{active} tests running (max {max_tests}); waiting for a slot...",
+        noun = "test" if active == 1 else "tests"
+        print(f"{active} {noun} running (max {max_tests}); waiting for a slot...",
               file=sys.stderr, flush=True)
         sleep(poll_s)
         waited += poll_s
