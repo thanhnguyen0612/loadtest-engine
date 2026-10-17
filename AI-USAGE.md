@@ -3,9 +3,23 @@
 ## Tools
 
 - **Claude Code** (CLI), with the **superpowers** plugin skills, mainly `brainstorming`, `writing-plans` and `subagent-driven-development` (test-first implementation with a review per task).
-- TODO(candidate): list any other AI tools used (chat assistants, IDE completion, etc.) and what for.
 
 ## Workflow
+
+### Setup and configuration
+
+- **Agent:** Claude Code in the terminal, run from an empty working directory with the assignment PDF in it. I ran it in auto mode, so the agent asked me before anything outward-facing or destructive. Examples: installing tools with Homebrew, creating the GitHub repository, pushing. Auto mode blocked the one force-push, and I ran that myself.
+- **Process plugin:** the `superpowers` skills, which turn a session into a fixed process: brainstorm → written design → plan → per-task implementation with review. Nothing was generated before I approved the design and then the plan.
+- **Roles and models:** one *controller* session coordinated and never wrote product code itself. It dispatched short-lived subagents:
+  - implementers: a mid-tier model for well-specified tasks, the most capable model for integration-heavy ones (the orchestrator, the kind end-to-end task, the workflows, the docs);
+  - reviewers: a separate agent per task, never the implementer;
+  - a cold-reader "builder check" on the design;
+  - a final whole-branch reviewer on the most capable model.
+- **Context control:** each subagent got a short brief file with only its task, the project-wide constraints and the report contract. It did not get the conversation history. Implementers wrote full reports to files and returned a few lines. Reviewers received the diff as a file.
+- **Persistent state:** a git-ignored ledger recorded every dispatch, review verdict, deferred minor finding and ruling, so work could resume after an interruption without redoing tasks. One subagent was cut off by a network error mid-task and was resumed from its uncommitted changes.
+- **Local environment the agent set up (with my approval):** Python 3.12, Docker via Colima, kind, kubectl, Helm, Terraform, tflint, trivy, actionlint and the GitHub CLI.
+
+### Stages
 
 The work went through four stages. Each one produced a file that the next stage worked from.
 
@@ -16,8 +30,19 @@ The work went through four stages. Each one produced a file that the next stage 
    - dispatched a **fresh implementer subagent** with only that task's brief and the global constraints;
    - then dispatched a separate **reviewer subagent** that checked the diff for spec compliance and code quality;
    - ran fix rounds with scoped re-reviews until the reviewer had no open findings;
-   - kept a **progress ledger** (git-ignored) with a pre-flight scan of how tasks connect, and numbered **rulings** (R1–R19) for gaps the plan did not settle. Examples: R1, `loadtest teardown` takes `--config` and `--run-id` because the workflow does not know the namespace; R12, document that the service image needs a numeric non-root `USER` rather than inspect images; R14, make the concurrency cap overridable because a laptop holds only one test.
-   - A final whole-branch review is run after all tasks.
+   - kept a **progress ledger** (git-ignored) with a pre-flight scan of how tasks connect, and numbered **rulings** (R1–R21) for gaps the plan did not settle. Examples: R1, `loadtest teardown` takes `--config` and `--run-id` because the workflow does not know the namespace; R12, document that the service image needs a numeric non-root `USER` rather than inspect images; R14, make the concurrency cap overridable because a laptop holds only one test.
+   - A final whole-branch review ran after all tasks, on the most capable model. It found no critical issues and six important ones, all fixed in a single fix wave and re-reviewed: the janitor could delete a test still waiting for capacity; unexpected errors exited 1 instead of 3; the reusable workflow only worked from this repo; on GKE the keyless CI login was not limited to the platform workflow; the runner image was unpinned. The sixth was my own submission items.
+
+### Where I stayed in the loop
+
+| Point | What I did |
+|---|---|
+| Requirements | Read Claude's summary against the PDF; corrected one misreading. |
+| Design questions | Answered them one by one: cloud, trigger, results, dependencies, my guardrail worries. Asked whether the flow met the requirements. |
+| Design spec | Approved it after the builder check's open questions were settled. |
+| Plan | Approved it and chose subagent-driven execution. |
+| During the build | Approved tool installs and the public repository; asked for status summaries; set the commit-message rule. |
+| Outward actions | Repository creation and pushes went through me; I ran the force-push myself. |
 
 ### Calls made by Claude during the build
 
@@ -29,7 +54,7 @@ These were not discussed with me up front; the controller recorded them in the s
 - The concurrency cap counts namespaces in the cluster; GitHub concurrency groups only hold one pending run, so they cannot be the cap.
 - The GKE design: dedicated project, private nodes, Dataplane V2, a spot node pool with a cluster-wide maximum, a least-privilege node service account, budget alerts, and WIF pinned to the org.
 
-TODO(candidate): note which of these you changed, and anything you would have done differently.
+I read these calls in the spec and the progress reports and kept them; I did not overrule any of them. The decisions that changed direction were mine: GCP over AWS, Python for the glue and sample service, a public repository (GitHub's free runners give public repos 4 vCPU, enough for one test), and plain commit messages without AI attribution.
 
 ## Representative prompts
 
@@ -79,4 +104,7 @@ Known limitations that remain are listed in [WRITEUP.md](WRITEUP.md#5-known-limi
 
 ## My own review
 
-TODO(candidate): what you reviewed by hand, what you changed by hand, and roughly how much time you spent.
+- **Before any code:** I had Claude summarise the requirements and checked the summary against the PDF, corrected a misreading (the "no clarifying questions" rule applies to me and the company, not to the AI), asked whether the proposed developer flow actually met the requirements, and approved the design spec and then the plan before implementation started.
+- **During the build:** I followed progress task by task and made the calls that left my machine: installing the tools, creating the public GitHub repository, and pushing. I ran the history rewrite's force-push myself.
+- **By hand:** I wrote no code by hand. All code, tests and docs were generated and then checked by the separate reviewers and by the validation steps above.
+- **Time:** about four hours of working session on one day, including the end-to-end runs on my laptop and on GitHub Actions.
