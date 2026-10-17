@@ -1,0 +1,52 @@
+# Defaults. The CLI (loadtest.values.render_values) supplies every key below except `platform`.
+runId: ""
+
+images:
+  postgres: ""
+  wiremock: ""
+  k6: ""
+
+service:
+  name: ""
+  image: ""
+  port: 8000
+  healthPath: /health
+  resources:
+    cpu: 250m
+    memory: 256Mi
+  env: {}
+
+database:
+  enabled: false
+  seedSql: ""
+
+stubs: []
+
+k6:
+  files: {}
+
+quota:
+  cpu: "4"
+  memory: 4Gi
+  pods: 10
+
+scheduling:
+  nodeSelector: {}
+  tolerations: []
+
+# Platform-owned component sizes and caps. Must equal loadtest/limits.py
+# (POSTGRES_*, STUB_*, MAX_CPU_M, MAX_MEMORY_MI); test_chart.py asserts they do.
+platform:
+  postgres:
+    cpu: 500m
+    memory: 512Mi
+  stub:
+    cpu: 250m
+    memory: 256Mi
+  limitRange:
+    default:
+      cpu: 250m
+      memory: 256Mi
+    max:
+      cpu: 2000m
+      memory: 2048Mi
