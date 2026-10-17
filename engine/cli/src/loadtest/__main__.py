@@ -1,10 +1,13 @@
 """`loadtest` command line: validate, estimate, run, teardown.
 
-Exit codes: 0 pass, 1 thresholds failed (incl. smoke), 2 config invalid, 3 platform error.
+Exit codes: 0 pass, 1 thresholds failed (incl. smoke), 2 config invalid, 3 platform error
+(including any unexpected exception; set LOADTEST_DEBUG=1 for the traceback).
 """
 
 import argparse
+import os
 import sys
+import traceback
 from pathlib import Path
 
 import yaml
@@ -141,6 +144,11 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args)
     except ConfigError as exc:
         return _errors(exc.errors)
+    except Exception as exc:  # noqa: BLE001 -- anything unexpected is a platform error (3)
+        if os.environ.get("LOADTEST_DEBUG") == "1":
+            traceback.print_exc()
+        print(f"platform error: {orchestrator.describe_error(exc)}", file=sys.stderr)
+        return 3
 
 
 if __name__ == "__main__":

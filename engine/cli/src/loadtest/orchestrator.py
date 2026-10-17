@@ -9,6 +9,7 @@ variables `LOADTEST_CHART_DIR` and `LOADTEST_K6_DIR` (e.g. for a non-editable in
 `LOADTEST_MAX_CONCURRENT_TESTS` overrides the concurrency cap (e.g. 1 on a small laptop).
 """
 
+import contextlib
 import html as _html
 import json
 import os
@@ -226,6 +227,23 @@ def _config_error_outcome(errors: list[str]) -> RunOutcome:
     return RunOutcome(2, None, md, page, None)
 
 
+def describe_error(exc: BaseException) -> str:
+    """One line: exception type and the first line of its message."""
+    msg = str(exc).strip().splitlines()
+    return f"{type(exc).__name__}: {msg[0]}" if msg else type(exc).__name__
+
+
+def _unexpected_error_outcome(exc: Exception) -> RunOutcome:
+    detail = describe_error(exc)
+    md = (f"## ⚠️ ERROR — unexpected platform error\n\n```\n{detail}\n```\n\n"
+          "This is a platform problem, not a test result. Re-run, or contact the platform "
+          "team with this message.\n")
+    page = ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+            "<title>ERROR</title></head><body><h1>⚠️ ERROR — unexpected platform error</h1>"
+            f"<pre>{_html.escape(detail)}</pre></body></html>")
+    return RunOutcome(3, None, md, page, None)
+
+
 def _write(out_dir: Path, outcome: RunOutcome) -> RunOutcome:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "summary.md").write_text(outcome.markdown)
@@ -243,6 +261,24 @@ def run_test(config_path: Path, image: str, run_id: str, out_dir: Path, runner: 
              chart_dir: Path | None = None, k6_dir: Path | None = None,
              scheduling: dict | None = None, now: Callable[[], int] = _now,
              sleep=time.sleep) -> RunOutcome:
+    """Run one test and write the reports to `out_dir`.
+
+    An unexpected exception (a bug, or e.g. non-JSON kubectl output) still tears the
+    namespace down and, where possible, writes an ERROR summary.md; it is then re-raised
+    for `main()` to turn into exit code 3.
+    """
+    try:
+        return _run_test(config_path, image, run_id, out_dir, runner, chart_dir, k6_dir,
+                         scheduling, now, sleep)
+    except Exception as exc:
+        with contextlib.suppress(Exception):  # best effort; the original error matters
+            _write(Path(out_dir), _unexpected_error_outcome(exc))
+        raise
+
+
+def _run_test(config_path: Path, image: str, run_id: str, out_dir: Path, runner: Runner,
+              chart_dir: Path | None, k6_dir: Path | None, scheduling: dict | None,
+              now: Callable[[], int], sleep) -> RunOutcome:
     out_dir = Path(out_dir)
     chart_dir = Path(chart_dir) if chart_dir else default_chart_dir()
     k6_dir = Path(k6_dir) if k6_dir else default_k6_dir()

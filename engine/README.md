@@ -118,7 +118,7 @@ Results appear when the run ends. There is no live dashboard yet.
 | `0` | PASS | All thresholds met |
 | `1` | FAIL | A threshold was missed, or the smoke test failed |
 | `2` | Config invalid | Schema error, cap exceeded, wrong registry, missing seed/stubs file. Nothing was deployed. |
-| `3` | Platform error | No free slot within 10 min, service never became ready, k6 produced no results. The report names the failed step and lists pod states. |
+| `3` | Platform error | No free slot within 10 min, service never became ready, k6 produced no results, or an unexpected platform error (the one-line error is printed and written to the report; `LOADTEST_DEBUG=1` adds the traceback). The report names the failed step and lists pod states. |
 
 ## 6. Image requirements
 

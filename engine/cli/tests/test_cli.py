@@ -173,3 +173,64 @@ def test_gke_scheduling_example_reaches_the_k6_job(tmp_path, monkeypatch):
     assert pod["nodeSelector"] == {"workload": "loadtest"}
     assert pod["tolerations"] == [{"key": "dedicated", "operator": "Equal", "value": "loadtest",
                                    "effect": "NoSchedule"}]
+
+
+def run_main(tmp_path, out=None):
+    return main(["run", CONFIG, "--image", IMAGE, "--run-id", "42", "--out",
+                 str(out or tmp_path / "out")])
+
+
+def test_run_non_json_kubectl_output_exits_3_with_error_report(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("LOADTEST_DEBUG", raising=False)
+    monkeypatch.setattr(kube, "run", Recorder({"kubectl get namespaces": "<html>proxy</html>"}))
+    assert run_main(tmp_path) == 3
+    err = capsys.readouterr().err
+    assert "platform error" in err and "JSONDecodeError" in err
+    assert "Traceback" not in err
+    summary = (tmp_path / "out" / "summary.md").read_text()
+    assert "ERROR" in summary and "JSONDecodeError" in summary
+    assert (tmp_path / "out" / "report.html").exists()
+
+
+def test_run_undecodable_kubectl_output_exits_3_and_tears_down(tmp_path, capsys, monkeypatch):
+    rec = Recorder({"kubectl get namespaces": json.dumps({"items": []}),
+                    "kubectl get job": json.dumps({"status": {"succeeded": 1}})})
+
+    def runner(cmd, stdin=None):
+        if cmd[:2] == ["kubectl", "logs"]:
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+        return rec(cmd, stdin)
+
+    monkeypatch.setattr(kube, "run", runner)
+    assert run_main(tmp_path) == 3
+    assert "UnicodeDecodeError" in capsys.readouterr().err
+    assert "UnicodeDecodeError" in (tmp_path / "out" / "summary.md").read_text()
+    assert rec.calls[-1][:4] == ["kubectl", "delete", "namespace", "lt-sample-api-42"]
+
+
+def test_config_not_utf8_is_config_invalid(tmp_path, capsys, monkeypatch):
+    bad = tmp_path / "loadtest.yaml"
+    bad.write_bytes(b"service: {name: \xff\xfe}\n")
+    assert main(["validate", str(bad)]) == 2
+    assert "cannot read" in capsys.readouterr().err
+    monkeypatch.setattr(kube, "run", Recorder())
+    assert main(["run", str(bad), "--image", IMAGE, "--run-id", "42", "--out",
+                 str(tmp_path / "out")]) == 2
+    assert "CONFIG INVALID" in (tmp_path / "out" / "summary.md").read_text()
+
+
+def test_unexpected_error_writing_report_exits_3(tmp_path, capsys, monkeypatch):
+    monkeypatch.delenv("LOADTEST_DEBUG", raising=False)
+    monkeypatch.setattr(kube, "run", Recorder({"kubectl get namespaces": "not json"}))
+    blocker = tmp_path / "file"
+    blocker.write_text("")
+    assert run_main(tmp_path, out=blocker / "out") == 3
+    err = capsys.readouterr().err
+    assert err.startswith("platform error:") and "Traceback" not in err
+
+
+def test_unexpected_error_traceback_with_debug(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("LOADTEST_DEBUG", "1")
+    monkeypatch.setattr(kube, "run", Recorder({"kubectl get namespaces": "not json"}))
+    assert run_main(tmp_path) == 3
+    assert "Traceback" in capsys.readouterr().err

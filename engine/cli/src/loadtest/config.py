@@ -192,7 +192,7 @@ def load_config(path: Path, image_override: str | None = None) -> LoadTestConfig
     path = Path(path)
     try:
         raw = yaml.safe_load(path.read_text())
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise ConfigError([f"cannot read {path}: {exc}"]) from exc
     except yaml.YAMLError as exc:
         raise ConfigError([f"invalid YAML in {path}: {exc}"]) from exc
