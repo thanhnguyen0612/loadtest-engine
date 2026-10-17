@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 
 from loadtest.config import parse_cpu_m, parse_memory_mi
-from loadtest.estimate import CostEstimate
+from loadtest.estimate import CostEstimate, format_usd
 from loadtest.plan import TestPlan
 
 SUMMARY_BEGIN = "===LOADTEST_SUMMARY_BEGIN==="
@@ -124,6 +124,9 @@ def build_result(summary: dict, plan: TestPlan, peak_cpu_m: int | None,
     )
 
 
+FENCE = "`" * 3
+
+
 def _headline(result: Result | None, plan: TestPlan) -> str:
     svc = plan.config.service.name
     if result is None:
@@ -135,7 +138,7 @@ def _headline(result: Result | None, plan: TestPlan) -> str:
 
 def _plan_line(plan: TestPlan, est: CostEstimate) -> str:
     return (f"Target {plan.target_rps} rps for {plan.duration_s}s in `{plan.namespace}` "
-            f"· est. cost ~${est.usd:.2f} ({est.vcpu:.2f} vCPU, {est.minutes:.0f} min)")
+            f"· est. cost {format_usd(est.usd)} ({est.vcpu:.2f} vCPU, {est.minutes:.0f} min)")
 
 
 def _resource_rows(r: Result) -> list[tuple[str, str, str]]:
@@ -158,7 +161,9 @@ def render_markdown(result: Result | None, plan: TestPlan, estimate: CostEstimat
                     error: str | None = None) -> str:
     out = [f"## {_headline(result, plan)}", "", _plan_line(plan, estimate), ""]
     if result is None:
-        out += [f"**Error:** {error or 'no results collected'}", ""]
+        # Fenced so multi-line details (pod listings) keep their layout in a PR comment.
+        detail = (error or "no results collected").replace(FENCE, "'" * 3)
+        out += ["**Error:**", "", FENCE, detail, FENCE, ""]
         return "\n".join(out)
     if not result.smoke_passed:
         out += ["The smoke test failed, so the load test did not count as a pass.", ""]

@@ -14,7 +14,7 @@ import yaml
 
 from loadtest import kube, orchestrator
 from loadtest.config import ConfigError, load_config
-from loadtest.estimate import estimate_cost
+from loadtest.estimate import estimate_cost, format_usd
 from loadtest.plan import build_plan, namespace_name
 
 PREVIEW_RUN_ID = "preview"  # validate/estimate never touch a cluster
@@ -61,8 +61,7 @@ def cmd_validate(args) -> int:
 
 def cmd_estimate(args) -> int:
     est = estimate_cost(_load_plan(args))
-    usd = f"${est.usd:.2f}" if est.usd >= 0.01 else "<$0.01"
-    print(f"Estimated cost: {usd} ({est.vcpu:.1f} vCPU × {est.minutes:.0f} min, "
+    print(f"Estimated cost: {format_usd(est.usd)} ({est.vcpu:.1f} vCPU × {est.minutes:.0f} min, "
           "GKE spot list price, illustrative)")
     return 0
 

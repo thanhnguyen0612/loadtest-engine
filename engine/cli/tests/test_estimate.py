@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from loadtest.config import load_config
-from loadtest.estimate import USD_PER_VCPU_HOUR, estimate_cost
+from loadtest.estimate import USD_PER_VCPU_HOUR, estimate_cost, format_usd
 from loadtest.plan import build_plan
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid" / "loadtest.yaml"
@@ -24,3 +24,9 @@ def test_estimate_components():
     assert e.vcpu == 0.25 + 0.5 + 0.25 + 1.0
     assert e.minutes == 1 + 5
     assert abs(e.usd - e.vcpu * (e.minutes / 60) * USD_PER_VCPU_HOUR) < 1e-9
+
+
+def test_format_usd_matches_cli_and_report_wording():
+    assert format_usd(0.004) == "<$0.01"
+    assert format_usd(0.01) == "$0.01"
+    assert format_usd(1.234) == "$1.23"

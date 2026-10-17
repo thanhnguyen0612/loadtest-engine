@@ -149,3 +149,9 @@ def test_request_rate_guard_breach_fails_the_run():
     r = build_result(_with_rps_guard(PASS, False), plan, None, None)
     assert not r.passed
     assert [c.name for c in r.checks if not c.ok] == ["request rate (platform cap)"]
+
+
+def test_markdown_error_is_fenced_and_cost_uses_cli_wording():
+    md = render_markdown(None, plan, est, "helm failed\n\nPods in ns:\nNAME  READY\napp   0/1")
+    assert "```\nhelm failed\n\nPods in ns:\nNAME  READY\napp   0/1\n```" in md
+    assert "est. cost <$0.01" in md

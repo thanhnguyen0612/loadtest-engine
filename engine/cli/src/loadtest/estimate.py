@@ -29,3 +29,8 @@ def estimate_cost(plan: TestPlan) -> CostEstimate:
     vcpu += K6_VCPU
     minutes = plan.duration_s / 60 + OVERHEAD_MIN
     return CostEstimate(usd=vcpu * (minutes / 60) * USD_PER_VCPU_HOUR, vcpu=vcpu, minutes=minutes)
+
+
+def format_usd(usd: float) -> str:
+    """Dollar amount as shown to developers: cents, or `<$0.01` below one cent."""
+    return f"${usd:.2f}" if usd >= 0.01 else "<$0.01"
