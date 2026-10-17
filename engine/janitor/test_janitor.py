@@ -65,6 +65,8 @@ def test_terminating_without_annotation_is_skipped():
 def test_constants_match_cli_limits():
     assert janitor.MAX_DURATION_S == limits.MAX_DURATION_S
     assert janitor.TTL_BUFFER_S == limits.TTL_BUFFER_S
+    assert janitor.MANAGED_LABEL == limits.MANAGED_LABEL
+    assert janitor.EXPIRES_ANNOTATION == limits.EXPIRES_ANNOTATION
 
 
 class FakeResponse(io.BytesIO):

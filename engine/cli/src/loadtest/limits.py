@@ -27,3 +27,10 @@ PRESETS: dict[str, tuple[int, int]] = {
 POSTGRES_CPU_M, POSTGRES_MEMORY_MI = 500, 512
 STUB_CPU_M, STUB_MEMORY_MI = 250, 256
 K6_CPU_M, K6_MEMORY_MI = 1000, 1024
+
+# Label/annotation keys stamped on every test namespace (mirrored in engine/janitor/janitor.py).
+MANAGED_LABEL = "loadtest.platform/managed"
+TEAM_LABEL = "loadtest.platform/team"
+SERVICE_LABEL = "loadtest.platform/service"
+RUN_ID_LABEL = "loadtest.platform/run-id"
+EXPIRES_ANNOTATION = "loadtest.platform/expires-at"  # unix epoch seconds
