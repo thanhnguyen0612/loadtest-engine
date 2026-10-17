@@ -10,7 +10,12 @@ REGISTRY := localhost:5001
 TAG      ?= dev
 IMAGE    ?= $(REGISTRY)/sample-api:$(TAG)
 CONFIG   ?= $(SAMPLE)/loadtest/loadtest.yaml
-RUN_ID   ?= $(shell date +%Y%m%d-%H%M%S)
+# Simply expanded once, so every use in a recipe sees the same timestamp.
+ifeq ($(origin RUN_ID),undefined)
+RUN_ID   := $(shell date +%Y%m%d-%H%M%S)
+endif
+# Optional concurrency cap override (LOADTEST_MAX_CONCURRENT_TESTS), e.g. 1 on a laptop.
+MAX_CONCURRENT ?=
 CONTEXT  := kind-loadtest
 
 .PHONY: help venv test up down image loadtest janitor-now
@@ -39,8 +44,8 @@ image: ## Build and push the sample service image (TAG=dev)
 	docker build -t $(IMAGE) $(SAMPLE)
 	docker push $(IMAGE)
 
-loadtest: ## Run a load test end to end (RUN_ID=<timestamp>, CONFIG=..., TAG=dev)
-	$(LOADTEST) run $(CONFIG) --image $(IMAGE) --run-id $(RUN_ID) --out results/$(RUN_ID)
+loadtest: ## Run a load test end to end (RUN_ID=<timestamp>, CONFIG=..., TAG=dev, MAX_CONCURRENT=)
+	$(if $(MAX_CONCURRENT),LOADTEST_MAX_CONCURRENT_TESTS=$(MAX_CONCURRENT) )$(LOADTEST) run $(CONFIG) --image $(IMAGE) --run-id $(RUN_ID) --out results/$(RUN_ID)
 
 janitor-now: ## Run the janitor CronJob once and show its output
 	@job=janitor-manual-$$(date +%s); \

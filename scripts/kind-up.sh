@@ -63,11 +63,13 @@ kc apply --server-side --force-conflicts -f "$CALICO_URL" >/dev/null
 kc -n kube-system rollout status daemonset/calico-node --timeout=300s
 kc wait --for=condition=Ready nodes --all --timeout=300s
 
-# 7. metrics-server (kind kubelets serve self-signed certs).
-log "installing metrics-server"
-kc apply -f "$METRICS_SERVER_URL" >/dev/null
-if ! kc -n kube-system get deploy metrics-server \
-    -o jsonpath='{.spec.template.spec.containers[0].args}' | grep -q kubelet-insecure-tls; then
+# 7. metrics-server (kind kubelets serve self-signed certs). Installed once: re-applying
+#    the upstream manifest would drop the --kubelet-insecure-tls patch until re-patched.
+if kc -n kube-system get deploy metrics-server >/dev/null 2>&1; then
+  log "metrics-server already installed"
+else
+  log "installing metrics-server"
+  kc apply -f "$METRICS_SERVER_URL" >/dev/null
   kc -n kube-system patch deploy metrics-server --type=json \
     -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 fi
