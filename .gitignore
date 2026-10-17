@@ -7,3 +7,6 @@ __pycache__/
 *.tfstate*
 results/
 .superpowers/
+
+# Terraform lock files: committed for envs only, not for reusable modules
+infra/modules/**/.terraform.lock.hcl

@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars. All values are placeholders.
+project_id              = "acme-loadtest-123456" # dedicated project, NOT prod
+region                  = "europe-west4"
+billing_account         = "000000-000000-000000"
+budget_usd              = 300
+github_repository_owner = "acme"
+allowed_repositories    = ["acme/payments-service", "acme/orders-service"]
+master_authorized_cidrs = { ci-runners = "203.0.113.0/24" }
+max_nodes               = 6
+labels                  = { platform = "loadtest", cost-center = "platform-eng" }

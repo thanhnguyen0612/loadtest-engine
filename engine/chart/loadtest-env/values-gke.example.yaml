@@ -1,0 +1,10 @@
+# Scheduling for the shared GKE load-test node pool (infra/modules/gcp-loadtest-nodepool).
+# Pass to the CLI:  loadtest run loadtest.yaml --image ... --scheduling values-gke.example.yaml
+# Same shape as the chart's `scheduling` value (top-level nodeSelector / tolerations).
+nodeSelector:
+  workload: loadtest
+tolerations:
+  - key: dedicated
+    operator: Equal
+    value: loadtest
+    effect: NoSchedule
