@@ -265,7 +265,9 @@ def run_test(config_path: Path, image: str, run_id: str, out_dir: Path, runner: 
             summary = extract_summary(logs)
             result = build_result(summary, plan, peak_cpu, peak_mem, smoke_passed=smoke_ok)
         except Exception as exc:  # noqa: BLE001 -- any bad/partial summary means no results
-            return outcome(3, None, error=f"no results collected ({phase} phase): {exc}")
+            return outcome(3, None, error=f"no results collected ({phase} phase): {exc}"
+                                          f"\n\nPods in {plan.namespace}:\n"
+                                          f"{_pods(runner, plan.namespace)}")
         return outcome(0 if result.passed else 1, result, summary)
     except (DeployError, CommandError) as exc:
         return outcome(3, None, error=str(exc))
