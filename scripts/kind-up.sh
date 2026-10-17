@@ -10,7 +10,7 @@ REG_NAME=kind-registry
 REG_PORT=5001
 # Pinned versions (verified to exist).
 NODE_IMAGE="kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5"
-REGISTRY_IMAGE="registry:2"
+REGISTRY_IMAGE="registry:2.8.3"
 CALICO_URL="https://raw.githubusercontent.com/projectcalico/calico/v3.32.2/manifests/calico.yaml"
 METRICS_SERVER_URL="https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.9.0/components.yaml"
 

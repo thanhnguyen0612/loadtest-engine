@@ -6,10 +6,10 @@ build-backend = "setuptools.build_meta"
 name = "loadtest"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["pydantic>=2.7", "pyyaml>=6"]
+dependencies = ["pydantic>=2.7,<3", "pyyaml>=6,<7"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pytest==9.1.1", "ruff==0.17.1"]
 
 [project.scripts]
 loadtest = "loadtest.__main__:main"

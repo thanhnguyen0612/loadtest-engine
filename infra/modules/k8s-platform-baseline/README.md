@@ -8,7 +8,7 @@ It creates:
 
 - **`loadtest-system` namespace** (Pod Security `restricted`). It is *not* labelled
   `loadtest.platform/managed`, so neither the janitor nor the image policy touch it.
-- **Janitor** — a CronJob (`python:3.12-alpine`) running `engine/janitor/janitor.py`
+- **Janitor** — a CronJob (`python:3.12.15-alpine`) running `engine/janitor/janitor.py`
   from a ConfigMap mounted at `/janitor`. It deletes managed test namespaces whose
   `loadtest.platform/expires-at` annotation is in the past, so environments disappear
   even if the CI runner was killed mid-test. Its ServiceAccount may only `list` and

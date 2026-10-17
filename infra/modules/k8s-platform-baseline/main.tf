@@ -116,7 +116,7 @@ resource "kubernetes_cron_job_v1" "janitor" {
 
             container {
               name    = "janitor"
-              image   = "python:3.12-alpine"
+              image   = "python:3.12.15-alpine"
               command = ["python", "/janitor/janitor.py"]
 
               env {

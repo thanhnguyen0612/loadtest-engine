@@ -1,4 +1,4 @@
-"""Delete expired loadtest namespaces. Standalone, stdlib only (python:3.12-alpine).
+"""Delete expired loadtest namespaces. Standalone, stdlib only (python:3.12.15-alpine).
 
 Runs in-cluster as a CronJob; the script is mounted from a ConfigMap, so it must not
 import the `loadtest` package.
