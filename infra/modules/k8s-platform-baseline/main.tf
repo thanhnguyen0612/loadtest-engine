@@ -163,8 +163,11 @@ resource "kubernetes_cron_job_v1" "janitor" {
 }
 
 # --- Image admission policy ----------------------------------------------------------
-# Pods created in test namespaces (label managed=true) may only run images from the
-# platform registry or the pinned platform images.
+# Pods in test namespaces (label managed=true) may only run images from the platform
+# registry or the pinned platform images. Checked on CREATE, UPDATE and when ephemeral
+# containers are added (kubectl debug). Allowed entries ending in '/' are registry
+# prefixes; an entry with a tag (':' after the last '/') must match exactly, optionally
+# pinned by digest ('<entry>@sha256:...'); any other entry is a prefix.
 
 resource "kubernetes_manifest" "image_policy" {
   manifest = {
@@ -179,8 +182,8 @@ resource "kubernetes_manifest" "image_policy" {
         resourceRules = [{
           apiGroups   = [""]
           apiVersions = ["v1"]
-          operations  = ["CREATE"]
-          resources   = ["pods"]
+          operations  = ["CREATE", "UPDATE"]
+          resources   = ["pods", "pods/ephemeralcontainers"]
         }]
       }
       variables = [
@@ -190,16 +193,16 @@ resource "kubernetes_manifest" "image_policy" {
         },
         {
           name       = "images"
-          expression = "(object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])).map(c, c.image)"
+          expression = "(object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : []) + (has(object.spec.ephemeralContainers) ? object.spec.ephemeralContainers : [])).map(c, c.image)"
         },
         {
           name       = "denied"
-          expression = "variables.images.filter(i, !variables.allowed.exists(p, i.startsWith(p)))"
+          expression = "variables.images.filter(i, !variables.allowed.exists(p, p.endsWith('/') ? i.startsWith(p) : (p.substring(p.lastIndexOf('/') + 1).contains(':') ? (i == p || i.startsWith(p + '@sha256:')) : i.startsWith(p))))"
         },
       ]
       validations = [{
         expression        = "size(variables.denied) == 0"
-        messageExpression = "'image(s) not allowed in load-test namespaces: ' + variables.denied.join(', ') + '; allowed prefixes: ' + variables.allowed.join(', ')"
+        messageExpression = "'image(s) not allowed in load-test namespaces: ' + variables.denied.join(', ') + '; allowed: ' + variables.allowed.join(', ')"
         reason            = "Forbidden"
       }]
     }
