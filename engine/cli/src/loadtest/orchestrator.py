@@ -6,6 +6,7 @@ shells out to kubectl/helm), so the sequence is testable without a cluster.
 The Helm chart and k6 scripts are located relative to this package, which works in a repo
 checkout (`engine/chart/loadtest-env` and `engine/k6`). Override them with the environment
 variables `LOADTEST_CHART_DIR` and `LOADTEST_K6_DIR` (e.g. for a non-editable install).
+`LOADTEST_MAX_CONCURRENT_TESTS` overrides the concurrency cap (e.g. 1 on a small laptop).
 """
 
 import html as _html
@@ -42,6 +43,27 @@ HELM_TIMEOUT = "5m"
 JOB_GRACE_S = 60  # client-side wait beyond the Job's activeDeadlineSeconds
 # Kubernetes label value: run-id is stamped on namespaces and pods.
 RUN_ID = re.compile(r"^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$")
+
+
+MAX_CONCURRENT_ENV = "LOADTEST_MAX_CONCURRENT_TESTS"
+
+
+def max_concurrent_tests(env=None) -> int:
+    """Concurrency cap: $LOADTEST_MAX_CONCURRENT_TESTS (positive int) or the platform default.
+
+    Raises ValueError on an invalid override.
+    """
+    env = os.environ if env is None else env
+    raw = env.get(MAX_CONCURRENT_ENV)
+    if raw is None:
+        return limits.MAX_CONCURRENT_TESTS
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value < 1:
+        raise ValueError(f"{MAX_CONCURRENT_ENV} must be a positive integer, got {raw!r}")
+    return value
 
 
 class CapacityError(Exception):
@@ -229,6 +251,10 @@ def run_test(config_path: Path, image: str, run_id: str, out_dir: Path, runner: 
         return _write(out_dir, _config_error_outcome(
             [f"run id {run_id!r} must be a valid Kubernetes label value"]))
     try:
+        max_tests = max_concurrent_tests()
+    except ValueError as exc:
+        return _write(out_dir, _config_error_outcome([str(exc)]))
+    try:
         cfg = load_config(Path(config_path), image)
     except ConfigError as exc:
         return _write(out_dir, _config_error_outcome(exc.errors))
@@ -245,7 +271,7 @@ def run_test(config_path: Path, image: str, run_id: str, out_dir: Path, runner: 
                                           render_html(result, plan, est, error), summary))
 
     try:
-        wait_for_capacity(runner, limits.MAX_CONCURRENT_TESTS, sleep=sleep)
+        wait_for_capacity(runner, max_tests, sleep=sleep)
     except (CapacityError, CommandError) as exc:
         return outcome(3, None, error=str(exc))
 

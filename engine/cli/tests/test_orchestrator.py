@@ -28,6 +28,11 @@ NOW = 1_000_000
 NS = "lt-sample-api-42"
 
 
+@pytest.fixture(autouse=True)
+def _default_concurrency(monkeypatch):
+    monkeypatch.delenv("LOADTEST_MAX_CONCURRENT_TESTS", raising=False)
+
+
 def logs(summary: dict) -> str:
     return f"running...\n{SUMMARY_BEGIN}\n{json.dumps(summary)}\n{SUMMARY_END}\n"
 
@@ -409,3 +414,29 @@ def test_run_missing_summary_reports_pods(tmp_path):
     assert "no results collected (smoke phase)" in outcome.markdown
     assert "k6-smoke-dmf4c 0/1 Pending" in outcome.markdown
     assert runner.lines()[-1].startswith(f"kubectl delete namespace {NS}")
+
+
+def test_concurrency_cap_defaults_to_limit(tmp_path):
+    # 2 active < default 3: no waiting (no_sleep would raise).
+    runner = FakeRunner({"kubectl get namespaces": namespaces("Active", "Active")})
+    assert go(tmp_path, runner).exit_code == 0
+
+
+def test_concurrency_cap_env_override(tmp_path, monkeypatch):
+    monkeypatch.setenv("LOADTEST_MAX_CONCURRENT_TESTS", "1")
+    runner = FakeRunner({"kubectl get namespaces": [namespaces("Active"), namespaces()]})
+    slept = []
+    outcome = go(tmp_path, runner, sleep=slept.append)
+    assert outcome.exit_code == 0
+    assert slept == [15]
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "two", ""])
+def test_concurrency_cap_env_invalid_exits_2_without_touching_cluster(tmp_path, monkeypatch,
+                                                                      value):
+    monkeypatch.setenv("LOADTEST_MAX_CONCURRENT_TESTS", value)
+    runner = FakeRunner()
+    outcome = go(tmp_path, runner)
+    assert outcome.exit_code == 2
+    assert "LOADTEST_MAX_CONCURRENT_TESTS" in outcome.markdown
+    assert runner.calls == []
