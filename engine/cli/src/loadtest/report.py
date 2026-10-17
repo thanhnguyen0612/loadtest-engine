@@ -49,9 +49,12 @@ def extract_summary(logs: str) -> dict:
     if start == -1 or end == -1:
         raise MissingResults("k6 summary markers not found in logs")
     try:
-        return json.loads(logs[start + len(SUMMARY_BEGIN):end])
+        data = json.loads(logs[start + len(SUMMARY_BEGIN):end])
     except json.JSONDecodeError as e:
         raise MissingResults(f"k6 summary is not valid JSON: {e}") from e
+    if not isinstance(data, dict):
+        raise MissingResults("k6 summary is not a JSON object")
+    return data
 
 
 def _fmt(metric: str, value: float | None, raw: str = "") -> str:
@@ -79,23 +82,35 @@ def _checks(summary: dict) -> list[ThresholdCheck]:
                 limit_txt = f"{op} {float(limit) * 100:g}%" if m else expr
             else:
                 name, limit_txt = f"{metric} {stat}", (f"{op} {limit}" if m else expr)
+            if "ok" not in outcome:
+                raise MissingResults(f"k6 summary threshold {metric} {expr} has no result")
             checks.append(ThresholdCheck(name, limit_txt, _fmt(metric, value), bool(outcome["ok"])))
     return checks
 
 
 def build_result(summary: dict, plan: TestPlan, peak_cpu_m: int | None,
                  peak_mem_mi: int | None, smoke_passed: bool = True) -> Result:
-    metrics = summary["metrics"]
-    dur = metrics["http_req_duration"]["values"]
+    def values(metric: str, *keys: str) -> list:
+        vals = summary.get("metrics", {}).get(metric, {}).get("values", {})
+        missing = [k for k in keys if k not in vals]
+        if missing:
+            raise MissingResults(f"k6 summary missing metric {metric} ({', '.join(missing)})")
+        return [vals[k] for k in keys]
+
+    p50, p95, p99 = values("http_req_duration", "med", "p(95)", "p(99)")
+    (rps,) = values("http_reqs", "rate")
+    (error_rate,) = values("http_req_failed", "rate")
     checks = _checks(summary)
+    if not checks:
+        raise MissingResults("k6 summary had no thresholds")
     return Result(
         passed=smoke_passed and all(c.ok for c in checks),
         smoke_passed=smoke_passed,
-        p50_ms=dur["med"],
-        p95_ms=dur["p(95)"],
-        p99_ms=dur["p(99)"],
-        rps=metrics["http_reqs"]["values"]["rate"],
-        error_rate=metrics["http_req_failed"]["values"]["rate"],
+        p50_ms=p50,
+        p95_ms=p95,
+        p99_ms=p99,
+        rps=rps,
+        error_rate=error_rate,
         checks=checks,
         peak_cpu_m=peak_cpu_m,
         peak_mem_mi=peak_mem_mi,
