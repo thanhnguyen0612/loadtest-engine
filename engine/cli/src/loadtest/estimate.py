@@ -2,13 +2,14 @@
 
 from dataclasses import dataclass
 
+from loadtest import limits
 from loadtest.config import parse_cpu_m
 from loadtest.plan import TestPlan
 
 USD_PER_VCPU_HOUR = 0.012  # illustrative GKE spot rate; not a quote
-POSTGRES_VCPU = 0.5
-STUB_VCPU = 0.25
-K6_VCPU = 1.0
+POSTGRES_VCPU = limits.POSTGRES_CPU_M / 1000
+STUB_VCPU = limits.STUB_CPU_M / 1000
+K6_VCPU = limits.K6_CPU_M / 1000
 OVERHEAD_MIN = 5  # namespace setup, image pulls, teardown
 
 
