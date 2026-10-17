@@ -145,3 +145,31 @@ def test_python_m_loadtest_runs():
                           check=False, capture_output=True, text=True)
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.startswith("Estimated cost: ")
+
+
+def test_gke_scheduling_example_reaches_the_k6_job(tmp_path, monkeypatch):
+    example = Path(__file__).resolve().parents[2] / "chart" / "loadtest-env" / "values-gke.example.yaml"
+    stdins = []
+
+    def rec(cmd, stdin=None):
+        if stdin:
+            stdins.append(stdin)
+        line = " ".join(cmd)
+        if line.startswith("kubectl get namespaces"):
+            return json.dumps({"items": []})
+        if line.startswith("kubectl get job"):
+            return json.dumps({"status": {"succeeded": 1}})
+        if line.startswith("kubectl logs"):
+            return f"{SUMMARY_BEGIN}\n{json.dumps(PASS)}\n{SUMMARY_END}\n"
+        return ""
+
+    monkeypatch.setattr(kube, "run", rec)
+    code = main(["run", CONFIG, "--image", IMAGE, "--run-id", "42", "--out",
+                 str(tmp_path / "out"), "--scheduling", str(example)])
+    assert code == 0
+    jobs = [d for s in stdins for d in yaml.safe_load_all(s) if d and d.get("kind") == "Job"]
+    assert jobs, "no Job manifest was applied"
+    pod = jobs[0]["spec"]["template"]["spec"]
+    assert pod["nodeSelector"] == {"workload": "loadtest"}
+    assert pod["tolerations"] == [{"key": "dedicated", "operator": "Equal", "value": "loadtest",
+                                   "effect": "NoSchedule"}]
