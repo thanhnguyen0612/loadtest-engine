@@ -394,3 +394,18 @@ def test_default_dirs_resolve_in_checkout(monkeypatch):
     monkeypatch.setenv("LOADTEST_K6_DIR", "/x/k6")
     assert orchestrator.default_chart_dir() == Path("/x/chart")
     assert orchestrator.default_k6_dir() == Path("/x/k6")
+
+
+def test_run_missing_summary_reports_pods(tmp_path):
+    # Seen on a full node: the k6 pod stays Pending until activeDeadlineSeconds, so there
+    # are no logs; the report must show why (pod states), not only "markers not found".
+    runner = FakeRunner({
+        "kubectl get job k6-smoke": job_status(failed=1),
+        "kubectl logs job/k6-smoke": "",
+        "kubectl get pods": "k6-smoke-dmf4c 0/1 Pending",
+    })
+    outcome = go(tmp_path, runner)
+    assert outcome.exit_code == 3
+    assert "no results collected (smoke phase)" in outcome.markdown
+    assert "k6-smoke-dmf4c 0/1 Pending" in outcome.markdown
+    assert runner.lines()[-1].startswith(f"kubectl delete namespace {NS}")
