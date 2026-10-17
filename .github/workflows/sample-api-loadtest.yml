@@ -20,7 +20,7 @@ jobs:
        ((github.event.action == 'labeled' && github.event.label.name == 'loadtest') ||
         (github.event.action == 'synchronize' &&
          contains(github.event.pull_request.labels.*.name, 'loadtest'))))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -41,11 +41,13 @@ jobs:
 
   loadtest:
     needs: build
-    # At least what the reusable workflow requests.
+    # At least what the reusable workflow requests (the GKE variant also needs id-token: write).
     permissions:
       contents: read
       pull-requests: write
-      id-token: write
+    # Same repository, so the local path works and platform-repository can stay unset. From a
+    # service's own repository: <org>/loadtest-engine/.github/workflows/loadtest-reusable.yml@<ref>
+    # plus `platform-repository: <org>/loadtest-engine`.
     uses: ./.github/workflows/loadtest-reusable.yml
     with:
       config-path: services/sample-api/loadtest/loadtest.yaml

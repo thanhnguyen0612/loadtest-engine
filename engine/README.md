@@ -15,7 +15,25 @@ This is for service teams. You need no Kubernetes, Helm or Terraform knowledge. 
     └── scenario.js                  # optional: custom k6 scenario
 ```
 
-Your workflow is a copy of [`sample-api-loadtest.yml`](../.github/workflows/sample-api-loadtest.yml) with your paths and service name.
+Your workflow is a copy of [`sample-api-loadtest.yml`](../.github/workflows/sample-api-loadtest.yml) with your paths and service name, and with the `loadtest` job calling the platform's workflow by repository and ref instead of the local path:
+
+```yaml
+  loadtest:
+    needs: build
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: <org>/loadtest-engine/.github/workflows/loadtest-reusable.yml@v1
+    with:
+      platform-repository: <org>/loadtest-engine   # where the CLI, chart and k6 runner come from
+      platform-ref: v1                             # same ref as in `uses:`
+      config-path: loadtest/loadtest.yaml
+      image: localhost:5001/<your-service>:${{ github.sha }}
+      image-artifact: <your-service>-image
+      service: <your-service>
+```
+
+Your repository is checked out at the workspace root, so `config-path` and the paths inside `loadtest.yaml` are relative to your repo. The platform code is checked out separately at `platform-ref`, so the caps and guardrails are the platform team's, not your branch's.
 
 ## 2. What happens when you run it
 
@@ -24,7 +42,7 @@ The order is fixed. You cannot skip a step.
 1. **Validate** `loadtest.yaml` against the schema and the platform caps. All problems are listed at once.
 2. **Estimate** the cost and print the resolved plan.
 3. **Wait for a slot** if the cluster is at its concurrency cap (checked every 15 s, gives up after 10 min).
-4. **Provision** namespace `lt-<service>-<run-id>` with quota, limits, default-deny network policies, labels and an expiry time.
+4. **Provision** namespace `lt-<service>-<run-id>` (the run id is shortened to its last 12 characters; the full id is in the `loadtest.platform/run-id` label) with quota, limits, default-deny network policies, labels and an expiry time.
 5. **Deploy** your service, Postgres (seeded) and WireMock stubs. Waits up to 5 min for all of them to be ready.
 6. **Smoke test**: 5 rps for 15 s over your endpoints. If 5 % or more of the requests fail, the run stops here as FAIL.
 7. **Load test**: ramp up for 20 % of the duration, hold for 60 %, ramp down for 20 %.
@@ -98,7 +116,7 @@ Check a config without a cluster:
 | `M` | 150 | 300 s | Before a release or a change on a hot path. |
 | `L` | 500 | 900 s | Capacity checks before an expected traffic peak. |
 
-Start with `S`. Move up when `S` passes and you need an answer about higher load. You can change one dimension and keep the other, for example `size: S` with `duration_s: 120`. Because of the ramps, the average throughput is about 80 % of the target. The platform caps (500 rps, 900 s, 2000m CPU, 2048Mi memory) apply to every value.
+Start with `S`. Move up when `S` passes and you need an answer about higher load. You can change one dimension and keep the other, for example `size: S` with `duration_s: 120`. Because of the ramps, the average throughput is about 80 % of the target. The platform caps (500 iterations/s, plus a 500 req/s guard for custom scenarios; 900 s, 2000m CPU, 2048Mi memory) apply to every value.
 
 The report shows your service's peak CPU and memory next to its limits. If the peak is near the limit, the latency numbers are about throttling, not your code.
 

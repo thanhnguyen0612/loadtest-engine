@@ -15,6 +15,8 @@ The prototype runs end to end on a local [kind](https://kind.sigs.k8s.io/) clust
 | terraform | 1.16 | Applies the in-cluster platform baseline |
 | Python | 3.12 | `make venv` uses `python3.12`; override with `PYTHON=...` |
 
+The workflows run on the `ubuntu-24.04` GitHub-hosted runner image (pinned; Python 3.12, Docker and kubectl preinstalled).
+
 `make up` also needs internet access: it downloads Calico, metrics-server and the kind/registry images.
 
 ## Quickstart (laptop)
@@ -47,8 +49,8 @@ The developer guide (config reference, sizes, caps, results, exit codes, image r
 
 Two workflows are involved:
 
-- `.github/workflows/loadtest-reusable.yml` (named `loadtest-reusable`) is owned by the platform team. It validates the config, prints a cost estimate, starts a kind cluster on the runner with `scripts/kind-up.sh`, pushes the image to the local registry, runs `loadtest run`, and then writes the job summary, uploads the `loadtest-results` artifact, comments on the PR, and tears down. These last four steps run even when the test fails. The job fails if the CLI exits non-zero, so the workflow can be a required check.
-- `.github/workflows/sample-api-loadtest.yml` (named `sample-api-loadtest`) is what a service team writes: build the image, then call the reusable workflow. In a real setup it lives in the team's repo and references the reusable workflow by `org/repo/...@ref`.
+- `.github/workflows/loadtest-reusable.yml` (named `loadtest-reusable`) is owned by the platform team. It checks out the calling repository (config, seed, stubs, scenario) at the workspace root and the platform repository at `platform-ref` into `.platform/` (CLI, chart, k6 runner, kind scripts), so a service's PR cannot change the guardrails it is tested under. It validates the config (errors go to the job summary and the PR comment), prints a cost estimate, starts a kind cluster on the runner with `.platform/scripts/kind-up.sh`, pushes the image to the local registry, runs `loadtest run`, and then writes the job summary, uploads the `loadtest-results` artifact, comments on the PR, and tears down. These last four steps run even when the test fails. The job fails if the CLI exits non-zero, so the workflow can be a required check.
+- `.github/workflows/sample-api-loadtest.yml` (named `sample-api-loadtest`) is what a service team writes: build the image, then call the reusable workflow. Here it calls the reusable workflow by local path, so `platform-repository` and `platform-ref` can stay unset (they default to this repository and commit; for a PR in this repo that means the PR's own platform code). In a real setup it lives in the team's repo and calls `uses: <org>/loadtest-engine/.github/workflows/loadtest-reusable.yml@<ref>` with `platform-repository: <org>/loadtest-engine` and `platform-ref: <ref>` (see [engine/README.md](engine/README.md#1-what-you-add-to-your-repo)). That cross-repo call is not exercised in this single-repo prototype.
 
 How to start a run:
 
@@ -103,7 +105,7 @@ docs/superpowers/               Design spec and implementation plan (see AI-USAG
 | Cost | Team and service labels on every namespace (chargeback) | ✅ | |
 | Cost | Budget alerts at 50 / 90 / 100 % | | ✅ `gcp-budget` |
 | Prod isolation | Default-deny NetworkPolicy (ingress and egress); only in-namespace traffic and DNS allowed | ✅ (Calico) | ✅ (Dataplane V2) |
-| Prod isolation | Load targets must be paths (`/items`), never URLs; k6 always targets the in-namespace service | ✅ | |
+| Prod isolation | Load targets must be paths (`/items`), never URLs; the generated scenario targets the in-namespace service. A custom `scenario.js` can name any URL, but the egress NetworkPolicy blocks everything outside the namespace except DNS | ✅ | |
 | Prod isolation | Dedicated GCP project, own VPC with no peering/VPN, private nodes, API restricted to authorized CIDRs | | ✅ `gcp-network`, `gcp-gke-cluster` |
 | Prod isolation | GitHub → GCP through Workload Identity Federation (no keys), pinned to the org and listed repos, `container.developer` only | | ✅ `gcp-github-wif` |
 | Teardown | CLI deletes the namespace in `finally`; the workflow has an extra `if: always()` teardown step | ✅ | |
