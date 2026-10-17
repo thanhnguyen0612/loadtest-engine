@@ -20,7 +20,7 @@ variable "machine_type" {
 }
 
 variable "max_nodes" {
-  description = "Autoscaling ceiling per zone of the regional cluster; the pool scales to 0 when idle."
+  description = "Autoscaling ceiling for the whole pool across all zones (total_max_node_count); the pool scales to 0 when idle."
   type        = number
   default     = 6
 
