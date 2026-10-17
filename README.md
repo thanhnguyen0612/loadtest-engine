@@ -20,6 +20,7 @@ The prototype runs end to end on a local [kind](https://kind.sigs.k8s.io/) clust
 ## Quickstart (laptop)
 
 ```bash
+git clone https://github.com/thanhnguyen0612/loadtest-engine.git && cd loadtest-engine
 make venv                          # .venv with the `loadtest` CLI, plus the sample service's venv
 make test                          # unit tests and linters
 make up                            # kind cluster, registry on localhost:5001, Calico, metrics-server, platform baseline
@@ -52,13 +53,13 @@ Two workflows are involved:
 How to start a run:
 
 1. **Manual:** Actions tab → `sample-api-loadtest` → **Run workflow**.
-2. **Pull request:** add the label `loadtest` to a PR from a branch in the same repo. Every later push to that PR runs it again. PRs from forks never get a cluster.
+2. **Pull request:** in https://github.com/thanhnguyen0612/loadtest-engine, add the label `loadtest` to a PR from a branch in the same repo. Every later push to that PR runs it again. PRs from forks never get a cluster.
 
 The repository is **public** because of runner size. One test requests about 2 vCPU, and kind plus system pods need more on top. GitHub's standard Linux runners have 4 vCPU for public repos but only 2 vCPU for private ones. A private repo would need a larger (paid) runner.
 
 `ci.yml` runs on every push and PR: ruff and pytest, `helm lint` plus chart tests, and `terraform fmt`/`validate`, tflint and trivy for every module and env.
 
-First green end-to-end run: TODO(candidate): link to first green Actions run
+First green end-to-end run: https://github.com/thanhnguyen0612/loadtest-engine/actions/runs/39011688212
 
 ## Repository map
 
@@ -93,7 +94,8 @@ docs/superpowers/               Design spec and implementation plan (see AI-USAG
 | Capacity | ResourceQuota per test namespace (sum of all pods + 20 %), LimitRange defaults and per-container max | ✅ | |
 | Capacity | Concurrency cap: the CLI counts active managed namespaces and waits (up to 10 min) for a slot. Default 3, `LOADTEST_MAX_CONCURRENT_TESTS` overrides | ✅ | |
 | Capacity | One run per service at a time (GitHub concurrency group `loadtest-<service>`) | ✅ (Actions) | |
-| Sizing | S/M/L presets; custom values capped at 500 rps, 900 s, 2000m CPU, 2048Mi memory | ✅ | |
+| Sizing | S/M/L presets; custom values capped at 500 iterations/s, 900 s, 2000m CPU, 2048Mi memory | ✅ | |
+| Sizing | Request-rate guard: k6 aborts a load run whose request rate exceeds 500 req/s (custom scenarios with several requests per iteration) | ✅ | |
 | Sizing | Peak service CPU and memory shown next to the limits in the report | ✅ | |
 | Cost | Every namespace has an `expires-at` annotation (start + duration + 15 min) | ✅ | |
 | Cost | Cost estimate printed before the run (simple, illustrative model) | ✅ | |
@@ -124,6 +126,7 @@ Follow [docs/demo/guardrails.md](docs/demo/guardrails.md) in order. It has the e
 4. **Janitor.** Create a managed namespace with a past `expires-at`, run `make janitor-now`: it is deleted and the running test is left alone.
 5. **Concurrency cap.** Two runs with `MAX_CONCURRENT=1` started 3 s apart: the second waits ("1 tests running (max 1); waiting for a slot...") and starts once the first is done.
 6. **Threshold failure.** A copy of the config with `p95_ms: 1`: FAIL report, exit 1.
+7. **Request-rate guard.** A custom scenario with two requests per iteration at 300 iterations/s: k6 aborts at 505 req/s, the `request rate (platform cap)` check fails, exit 1.
 
 To finish, show a GitHub Actions run: the job summary, the `loadtest-results` artifact and, for a labelled PR, the PR comment.
 
