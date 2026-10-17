@@ -104,7 +104,7 @@ def build_result(summary: dict, plan: TestPlan, peak_cpu_m: int | None,
     )
 
 
-def _headline(result: Result | None, plan: TestPlan, error: str | None) -> str:
+def _headline(result: Result | None, plan: TestPlan) -> str:
     svc = plan.config.service.name
     if result is None:
         return f"⚠️ ERROR — {svc}"
@@ -136,7 +136,7 @@ def _icon(ok: bool) -> str:
 
 def render_markdown(result: Result | None, plan: TestPlan, estimate: CostEstimate,
                     error: str | None = None) -> str:
-    out = [f"## {_headline(result, plan, error)}", "", _plan_line(plan, estimate), ""]
+    out = [f"## {_headline(result, plan)}", "", _plan_line(plan, estimate), ""]
     if result is None:
         out += [f"**Error:** {error or 'no results collected'}", ""]
         return "\n".join(out)
@@ -161,7 +161,7 @@ def _table(head: list[str], rows: list[tuple]) -> str:
 
 def render_html(result: Result | None, plan: TestPlan, estimate: CostEstimate,
                 error: str | None = None) -> str:
-    head = _html.escape(_headline(result, plan, error))
+    head = _html.escape(_headline(result, plan))
     parts = [f"<h1>{head}</h1>", f"<p>{_html.escape(_plan_line(plan, estimate))}</p>"]
     if result is None:
         parts.append(f"<p><strong>Error:</strong> {_html.escape(error or 'no results collected')}</p>")
