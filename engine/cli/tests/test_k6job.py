@@ -83,3 +83,14 @@ def test_k6_job_scheduling():
 def test_runner_prints_summary_markers():
     src = (K6_DIR / "runner.js").read_text()
     assert SUMMARY_BEGIN in src and SUMMARY_END in src
+
+
+def test_k6_job_passes_platform_rps_cap():
+    assert envmap(k6_job(plan, "load"))["MAX_RPS"] == str(limits.MAX_RPS)
+
+
+def test_runner_aborts_load_phase_above_request_rate_cap():
+    src = (K6_DIR / "runner.js").read_text()
+    assert "__ENV.MAX_RPS" in src
+    assert "http_reqs" in src and "abortOnFail: true" in src
+    assert "rate<=${MAX_RPS}" in src

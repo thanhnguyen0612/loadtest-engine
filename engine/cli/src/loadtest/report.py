@@ -64,6 +64,8 @@ def _fmt(metric: str, value: float | None, raw: str = "") -> str:
         return f"{value:.0f} ms"
     if metric == "http_req_failed":
         return f"{value * 100:.2f}%"
+    if metric == "http_reqs":
+        return f"{value:.1f}/s"
     return f"{value:g}"
 
 
@@ -80,6 +82,9 @@ def _checks(summary: dict) -> list[ThresholdCheck]:
             elif metric == "http_req_failed":
                 name = "error rate"
                 limit_txt = f"{op} {float(limit) * 100:g}%" if m else expr
+            elif metric == "http_reqs" and stat == "rate":
+                name = "request rate (platform cap)"
+                limit_txt = f"{op} {limit}/s"
             else:
                 name, limit_txt = f"{metric} {stat}", (f"{op} {limit}" if m else expr)
             if "ok" not in outcome:

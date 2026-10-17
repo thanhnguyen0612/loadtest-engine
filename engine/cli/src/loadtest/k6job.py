@@ -23,6 +23,8 @@ def k6_job(plan: TestPlan, phase: Literal["smoke", "load"],
                               for s in plan.stages]),
         "P95_MS": str(cfg.thresholds.p95_ms),
         "ERROR_RATE": str(cfg.thresholds.error_rate),
+        # Request-rate guard: aborts a custom scenario that sends more than the platform cap.
+        "MAX_RPS": str(limits.MAX_RPS),
         "ENDPOINTS": json.dumps([{"method": e.method, "path": e.path, "body": e.body}
                                  for e in cfg.load.endpoints]),
     }

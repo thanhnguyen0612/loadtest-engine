@@ -127,3 +127,25 @@ def test_build_result_no_thresholds_raises_missing_results():
         m.pop("thresholds", None)
     with pytest.raises(MissingResults, match="thresholds"):
         build_result(bare, plan, None, None)
+
+
+def _with_rps_guard(summary, ok):
+    s = json.loads(json.dumps(summary))
+    s["metrics"]["http_reqs"]["thresholds"] = {"rate<=500": {"ok": ok}}
+    return s
+
+
+def test_request_rate_guard_check_is_labelled_as_platform_cap():
+    r = build_result(_with_rps_guard(PASS, True), plan, None, None)
+    guard = [c for c in r.checks if "platform cap" in c.name]
+    assert len(guard) == 1 and guard[0].ok
+    assert guard[0].name == "request rate (platform cap)"
+    assert guard[0].limit == "<= 500/s"
+    assert guard[0].actual == "49.8/s"
+    assert r.passed
+
+
+def test_request_rate_guard_breach_fails_the_run():
+    r = build_result(_with_rps_guard(PASS, False), plan, None, None)
+    assert not r.passed
+    assert [c.name for c in r.checks if not c.ok] == ["request rate (platform cap)"]
