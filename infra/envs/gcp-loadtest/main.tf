@@ -69,6 +69,7 @@ module "github_wif" {
   project_id              = var.project_id
   github_repository_owner = var.github_repository_owner
   allowed_repositories    = var.allowed_repositories
+  platform_workflow_ref   = var.platform_workflow_ref
   cluster_name            = module.cluster.cluster_name
 
   depends_on = [google_project_service.apis]

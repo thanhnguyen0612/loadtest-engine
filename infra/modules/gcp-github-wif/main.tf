@@ -16,8 +16,15 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "attribute.repository_owner" = "assertion.repository_owner"
   }
 
-  # Tokens from any other GitHub org are rejected before any IAM check.
-  attribute_condition = "assertion.repository_owner == \"${var.github_repository_owner}\""
+  # Rejected before any IAM check: tokens from any other GitHub org, and any job that is not
+  # running the platform's reusable workflow at its protected ref. A service repo's own
+  # workflows (or a PR that edits a copy of the platform workflow) cannot get credentials, so
+  # the guardrails the platform client creates (quota, NetworkPolicies, Pod Security label)
+  # cannot be skipped. `job_workflow_ref` is the called workflow, `repository` the caller.
+  attribute_condition = join(" && ", [
+    "assertion.repository_owner == \"${var.github_repository_owner}\"",
+    "assertion.job_workflow_ref == \"${var.platform_workflow_ref}\"",
+  ])
 
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"

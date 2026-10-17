@@ -107,7 +107,7 @@ docs/superpowers/               Design spec and implementation plan (see AI-USAG
 | Prod isolation | Default-deny NetworkPolicy (ingress and egress); only in-namespace traffic and DNS allowed | ✅ (Calico) | ✅ (Dataplane V2) |
 | Prod isolation | Load targets must be paths (`/items`), never URLs; the generated scenario targets the in-namespace service. A custom `scenario.js` can name any URL, but the egress NetworkPolicy blocks everything outside the namespace except DNS | ✅ | |
 | Prod isolation | Dedicated GCP project, own VPC with no peering/VPN, private nodes, API restricted to authorized CIDRs | | ✅ `gcp-network`, `gcp-gke-cluster` |
-| Prod isolation | GitHub → GCP through Workload Identity Federation (no keys), pinned to the org and listed repos, `container.developer` only | | ✅ `gcp-github-wif` |
+| Prod isolation | GitHub → GCP through Workload Identity Federation (no keys), pinned to the org, the listed repos and the platform's reusable workflow at a protected ref (`job_workflow_ref`), `container.developer` only | | ✅ `gcp-github-wif` |
 | Teardown | CLI deletes the namespace in `finally`; the workflow has an extra `if: always()` teardown step | ✅ | |
 | Teardown | Janitor CronJob (every 5 min) deletes managed namespaces past `expires-at` (covers cancelled or killed runs) | ✅ | |
 | Security | Validator: image must come from the allowed registry (`localhost:5001/` here) | ✅ | |

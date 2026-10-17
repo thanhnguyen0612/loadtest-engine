@@ -33,6 +33,21 @@ variable "allowed_repositories" {
   }
 }
 
+variable "platform_workflow_ref" {
+  description = "The only workflow that may obtain the deployer role: the platform's reusable workflow at a protected ref, as in the OIDC `job_workflow_ref` claim (\"owner/repo/.github/workflows/file.yml@refs/tags/v1\"). Protect that ref (branch protection or a tag ruleset)."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9-]+/[A-Za-z0-9._-]+/\\.github/workflows/[A-Za-z0-9._-]+\\.ya?ml@refs/(heads|tags)/[A-Za-z0-9._/-]+$", var.platform_workflow_ref))
+    error_message = "platform_workflow_ref must look like \"owner/repo/.github/workflows/<file>.yml@refs/tags/<tag>\" (or refs/heads/<branch>); it is interpolated into a CEL condition."
+  }
+
+  validation {
+    condition     = startswith(var.platform_workflow_ref, "${var.github_repository_owner}/")
+    error_message = "platform_workflow_ref must belong to github_repository_owner (start with \"<owner>/\")."
+  }
+}
+
 variable "cluster_name" {
   description = "Name of the load-test cluster the deployer is for (output of gcp-gke-cluster)."
   type        = string

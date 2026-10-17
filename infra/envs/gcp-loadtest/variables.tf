@@ -30,6 +30,11 @@ variable "allowed_repositories" {
   type        = list(string)
 }
 
+variable "platform_workflow_ref" {
+  description = "Platform reusable workflow at a protected ref (OIDC job_workflow_ref); the only workflow that may deploy."
+  type        = string
+}
+
 variable "master_authorized_cidrs" {
   description = "Name => CIDR map allowed to reach the Kubernetes API (for example self-hosted runners)."
   type        = map(string)
