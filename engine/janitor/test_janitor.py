@@ -40,9 +40,9 @@ def test_expiry_equal_to_now_is_not_expired():
 
 def test_missing_annotation_uses_creation_age():
     items = [
-        ns("stale", created=NOW - 1801),
-        ns("young", created=NOW - 1799),
-        ns("boundary", created=NOW - 1800),
+        ns("stale", created=NOW - 2116),
+        ns("young", created=NOW - 2114),
+        ns("boundary", created=NOW - 2115),
     ]
     assert expired_namespaces(items, now=NOW) == ["stale"]
 
@@ -65,6 +65,10 @@ def test_terminating_without_annotation_is_skipped():
 def test_constants_match_cli_limits():
     assert janitor.MAX_DURATION_S == limits.MAX_DURATION_S
     assert janitor.TTL_BUFFER_S == limits.TTL_BUFFER_S
+    assert janitor.SMOKE_DURATION_S == limits.SMOKE_DURATION_S
+    assert janitor.PROVISION_TIMEOUT_S == limits.PROVISION_TIMEOUT_S
+    # The creation-age fallback must never fire before a valid expires-at would.
+    assert janitor.MAX_LIFETIME_S == limits.MAX_NAMESPACE_LIFETIME_S
     assert janitor.MANAGED_LABEL == limits.MANAGED_LABEL
     assert janitor.EXPIRES_ANNOTATION == limits.EXPIRES_ANNOTATION
 

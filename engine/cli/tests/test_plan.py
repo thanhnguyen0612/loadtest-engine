@@ -1,8 +1,9 @@
 import re
 from pathlib import Path
 
+from loadtest import limits
 from loadtest.config import load_config
-from loadtest.plan import build_plan, namespace_name
+from loadtest.plan import build_plan, namespace_expiry, namespace_name
 
 FIXTURE = Path(__file__).parent / "fixtures" / "valid" / "loadtest.yaml"
 
@@ -41,8 +42,14 @@ def test_stage_durations_always_sum_to_duration():
         assert all(s.duration_s >= 0 for s in p.stages)
 
 
-def test_expires_at_is_now_plus_duration_plus_buffer():
-    assert build_plan(cfg(size="S"), "1", now=1000).expires_at == 1000 + 60 + 900
+def test_expires_at_covers_deploy_smoke_load_and_buffer():
+    # now + duration + smoke (15 s) + helm --wait (300 s) + TTL buffer (900 s)
+    assert build_plan(cfg(size="S"), "1", now=1000).expires_at == 1000 + 60 + 15 + 300 + 900
+
+
+def test_namespace_expiry_is_relative_to_start():
+    assert namespace_expiry(5000, 120) == 5000 + 120 + 15 + 300 + 900
+    assert limits.MAX_NAMESPACE_LIFETIME_S == namespace_expiry(0, limits.MAX_DURATION_S)
 
 
 def test_plan_carries_run_id_and_namespace():

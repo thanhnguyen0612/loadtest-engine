@@ -16,7 +16,7 @@ import re
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -27,7 +27,7 @@ from loadtest.config import ConfigError, load_config
 from loadtest.estimate import estimate_cost
 from loadtest.k6job import k6_job
 from loadtest.kube import CommandError, Runner, parse_top, run
-from loadtest.plan import TestPlan, build_plan
+from loadtest.plan import TestPlan, build_plan, namespace_expiry
 from loadtest.report import (
     Result,
     build_result,
@@ -39,7 +39,7 @@ from loadtest.values import render_values
 
 ENGINE_DIR = Path(__file__).resolve().parents[3]
 HELM_RELEASE = "loadtest"
-HELM_TIMEOUT = "5m"
+HELM_TIMEOUT = f"{limits.PROVISION_TIMEOUT_S // 60}m"
 JOB_GRACE_S = 60  # client-side wait beyond the Job's activeDeadlineSeconds
 # Kubernetes label value: run-id is stamped on namespaces and pods.
 RUN_ID = re.compile(r"^[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$")
@@ -274,6 +274,8 @@ def run_test(config_path: Path, image: str, run_id: str, out_dir: Path, runner: 
         wait_for_capacity(runner, max_tests, sleep=sleep)
     except (CapacityError, CommandError) as exc:
         return outcome(3, None, error=str(exc))
+    # The lifetime starts now, not before the queue: waiting must not eat into it.
+    plan = replace(plan, expires_at=namespace_expiry(now(), plan.duration_s))
 
     try:
         provision(runner, plan, values, chart_dir)

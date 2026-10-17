@@ -39,6 +39,15 @@ def namespace_name(service: str, run_id: str) -> str:
     return "-".join(p for p in ("lt", svc, rid) if p)
 
 
+def namespace_expiry(start: int, duration_s: int) -> int:
+    """`expires-at` for a namespace created at `start`: deploy + smoke + load + buffer.
+
+    The buffer covers the k6 Job deadlines, reporting and teardown.
+    """
+    return (start + limits.PROVISION_TIMEOUT_S + limits.SMOKE_DURATION_S + duration_s
+            + limits.TTL_BUFFER_S)
+
+
 def build_plan(config: LoadTestConfig, run_id: str, now: int) -> TestPlan:
     load = config.load
     preset_rps, preset_dur = limits.PRESETS[load.size] if load.size else (None, None)
@@ -57,5 +66,5 @@ def build_plan(config: LoadTestConfig, run_id: str, now: int) -> TestPlan:
         target_rps=rps,
         duration_s=duration,
         stages=stages,
-        expires_at=now + duration + limits.TTL_BUFFER_S,
+        expires_at=namespace_expiry(now, duration),
     )

@@ -81,7 +81,7 @@ README.md has the full table, kind vs Terraform only.
 ## 5. Known limitations
 
 - The capacity check is racy: two runs that start at the same moment can both see a free slot.
-- The CLI has no SIGTERM handler. If it is killed and the workflow's `always()` teardown step cannot run (runner lost), the namespace stays until the janitor deletes it: at most duration + 15 min, plus up to 5 min for the CronJob.
+- The CLI has no SIGTERM handler. If it is killed and the workflow's `always()` teardown step cannot run (runner lost), the namespace stays until the janitor deletes it: at most duration + about 20 min (deploy, smoke and a 15 min buffer), plus up to 5 min for the CronJob.
 - An unexpected Python exception exits 1 (looks like a threshold failure) instead of 3.
 - The cost estimate is a simple model (vCPU × minutes × an illustrative spot price), not billing data.
 - CI mode uses a fresh kind cluster per run, so it cannot show contention between tests; that is shown on the shared local cluster ([docs/demo/guardrails.md](docs/demo/guardrails.md)).

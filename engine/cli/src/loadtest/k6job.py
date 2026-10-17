@@ -6,7 +6,7 @@ from typing import Literal
 from loadtest import limits
 from loadtest.plan import TestPlan
 
-SMOKE_DURATION_S = 15
+SMOKE_DURATION_S = limits.SMOKE_DURATION_S
 DEADLINE_BUFFER_S = {"smoke": 60, "load": 120}
 K6_UID = 12345  # the grafana/k6 image user
 

@@ -97,7 +97,7 @@ docs/superpowers/               Design spec and implementation plan (see AI-USAG
 | Sizing | S/M/L presets; custom values capped at 500 iterations/s, 900 s, 2000m CPU, 2048Mi memory | ✅ | |
 | Sizing | Request-rate guard: k6 aborts a load run whose request rate exceeds 500 req/s (custom scenarios with several requests per iteration) | ✅ | |
 | Sizing | Peak service CPU and memory shown next to the limits in the report | ✅ | |
-| Cost | Every namespace has an `expires-at` annotation (start + duration + 15 min) | ✅ | |
+| Cost | Every namespace has an `expires-at` annotation: namespace creation (after any capacity wait) + 5 min deploy + 15 s smoke + duration + 15 min buffer | ✅ | |
 | Cost | Cost estimate printed before the run (simple, illustrative model) | ✅ | |
 | Cost | Spot VMs, node pool scales to zero | | ✅ |
 | Cost | Team and service labels on every namespace (chargeback) | ✅ | |

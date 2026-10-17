@@ -153,7 +153,27 @@ def test_namespace_manifest_has_labels_and_expiry():
     assert labels["pod-security.kubernetes.io/enforce"] == "restricted"
     assert labels["pod-security.kubernetes.io/enforce-version"] == "latest"
     expires = m["metadata"]["annotations"][limits.EXPIRES_ANNOTATION]
-    assert expires == str(NOW + 60 + limits.TTL_BUFFER_S)
+    assert expires == str(NOW + 60 + 15 + 300 + limits.TTL_BUFFER_S)
+
+
+def test_capacity_wait_does_not_shorten_namespace_lifetime(tmp_path):
+    busy = namespaces("Active", "Active", "Active")
+    runner = FakeRunner({"kubectl get namespaces": [busy, busy, busy, namespaces()]})
+    clock = [NOW]
+
+    def sleep(s):
+        clock[0] += s
+
+    outcome = run_test(CONFIG, IMAGE, "42", tmp_path / "out", runner=runner,
+                       chart_dir=tmp_path / "chart", k6_dir=k6_dir(tmp_path),
+                       now=lambda: clock[0], sleep=sleep)
+    assert outcome.exit_code == 0
+    waited = 45
+    (ns_manifest,) = [json.loads(s) for s in runner.stdin_for("kubectl apply")
+                      if json.loads(s)["kind"] == "Namespace"]
+    expires = int(ns_manifest["metadata"]["annotations"][limits.EXPIRES_ANNOTATION])
+    # The full lifetime starts when the namespace is created, after the queue.
+    assert expires == NOW + waited + 60 + 15 + 300 + limits.TTL_BUFFER_S
 
 
 def test_label_keys_match_global_constraints():

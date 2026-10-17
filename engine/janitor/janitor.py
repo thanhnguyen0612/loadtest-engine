@@ -16,6 +16,10 @@ from datetime import UTC, datetime
 # Mirrors engine/cli/src/loadtest/limits.py (guarded by test_constants_match_cli_limits).
 MAX_DURATION_S = 900
 TTL_BUFFER_S = 900
+PROVISION_TIMEOUT_S = 300
+SMOKE_DURATION_S = 15
+# Fallback when expires-at is missing: the longest lifetime the CLI ever stamps.
+MAX_LIFETIME_S = MAX_DURATION_S + SMOKE_DURATION_S + PROVISION_TIMEOUT_S + TTL_BUFFER_S
 # Mirrors the label/annotation keys the CLI stamps on every test namespace.
 MANAGED_LABEL = "loadtest.platform/managed"
 EXPIRES_ANNOTATION = "loadtest.platform/expires-at"
@@ -41,7 +45,7 @@ def _is_expired(meta: dict, now: int) -> bool:
     created = _created_epoch(meta)
     if created is None:
         return False
-    return now - created > MAX_DURATION_S + TTL_BUFFER_S
+    return now - created > MAX_LIFETIME_S
 
 
 def expired_namespaces(items: list[dict], now: int) -> list[str]:
