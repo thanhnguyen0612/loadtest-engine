@@ -19,4 +19,4 @@ dependencies:
     - name: payments-api
       mode: stub
       latency_ms: 80
-      stubs: stubs/payments-api/charge.json
+      stubs: stubs/payments-api

@@ -107,3 +107,13 @@ def test_top_level_keys(tmp_path):
     assert set(v) == {"runId", "images", "service", "database", "stubs", "k6", "quota",
                       "scheduling"}
     json.dumps(v)  # must be serialisable for helm
+
+
+def test_sample_api_config_renders_charge_stub_with_latency(tmp_path):
+    sample = Path(__file__).parents[3] / "services" / "sample-api" / "loadtest" / "loadtest.yaml"
+    cfg = load_config(sample, "localhost:5001/sample-api:dev")
+    v = render_values(plan_from_fixture(cfg), k6_dir(tmp_path))
+    (stub,) = v["stubs"]
+    assert stub["name"] == "payments-api"
+    assert set(stub["mappings"]) == {"charge.json"}
+    assert json.loads(stub["mappings"]["charge.json"])["response"]["fixedDelayMilliseconds"] == 80

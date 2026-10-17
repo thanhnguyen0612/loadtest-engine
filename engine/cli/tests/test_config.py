@@ -115,3 +115,26 @@ def test_bad_names_rejected(tmp_path):
 def test_parse_cpu_and_memory():
     assert parse_cpu_m("1") == 1000 and parse_memory_mi("1Gi") == 1024
     assert parse_cpu_m("250m") == 250 and parse_memory_mi("256Mi") == 256
+
+
+def _stubs_tail(value):
+    return ("dependencies: {services: [{name: dep, mode: stub, stubs: " + value + "}]}")
+
+
+def test_stubs_directory_accepted(tmp_path):
+    (tmp_path / "stubs" / "dep").mkdir(parents=True)
+    cfg = load_config(write(tmp_path, tail=_stubs_tail("stubs/dep")))
+    assert cfg.dependencies.services[0].stubs == "stubs/dep"
+
+
+def test_stubs_pointing_at_file_rejected(tmp_path):
+    (tmp_path / "one.json").write_text("{}")
+    with pytest.raises(ConfigError) as e:
+        load_config(write(tmp_path, tail=_stubs_tail("one.json")))
+    assert "one.json" in " ".join(e.value.errors)
+
+
+def test_stubs_missing_directory_rejected(tmp_path):
+    with pytest.raises(ConfigError) as e:
+        load_config(write(tmp_path, tail=_stubs_tail("nope")))
+    assert "nope" in " ".join(e.value.errors)
