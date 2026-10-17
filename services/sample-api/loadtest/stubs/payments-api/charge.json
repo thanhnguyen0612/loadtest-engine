@@ -1,0 +1,4 @@
+{
+  "request": {"method": "POST", "urlPath": "/charge"},
+  "response": {"status": 200, "jsonBody": {"status": "approved"}, "headers": {"Content-Type": "application/json"}}
+}
