@@ -1,0 +1,18 @@
+service:
+  name: sample-api
+  team: orders
+  image: localhost:5001/sample-api:test
+load:
+  endpoints:
+    - "GET /items"
+    - method: POST
+      path: /orders
+      body: {item_id: 1, quantity: 1}
+dependencies:
+  database:
+    engine: postgres
+    seed: seed.sql
+  services:
+    - name: payments-api
+      mode: stub
+      latency_ms: 80

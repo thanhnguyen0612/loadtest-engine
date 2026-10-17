@@ -1,0 +1,126 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Tool versions match the local toolchain (ruling R5).
+env:
+  HELM_VERSION: v4.3.1
+  TERRAFORM_VERSION: 1.16.6
+  TFLINT_VERSION: v0.64.0
+  TRIVY_VERSION: v0.76.0
+
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            engine/cli/pyproject.toml
+            services/sample-api/requirements*.txt
+      - name: Install engine CLI and sample-api (separate venvs)
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -e 'engine/cli[dev]'
+          python -m venv services/sample-api/.venv
+          services/sample-api/.venv/bin/pip install -q -r services/sample-api/requirements-dev.txt
+      - name: Lint engine
+        run: .venv/bin/ruff check engine
+      # Chart tests run in the `helm` job against the pinned helm, not the runner's preinstalled one.
+      - name: Test engine (CLI + janitor)
+        run: .venv/bin/pytest engine -q --ignore engine/cli/tests/test_chart.py
+      - name: Lint and test sample-api
+        working-directory: services/sample-api
+        run: |
+          .venv/bin/ruff check .
+          .venv/bin/pytest -q
+
+  helm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: engine/cli/pyproject.toml
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: ${{ env.HELM_VERSION }}
+      - name: Install engine CLI
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -e 'engine/cli[dev]'
+      - name: Render values from the test fixture
+        run: |
+          .venv/bin/python - > "$RUNNER_TEMP/values.json" <<'PY'
+          import json
+          from pathlib import Path
+
+          from loadtest.config import load_config
+          from loadtest.plan import build_plan
+          from loadtest.values import render_values
+
+          cfg = load_config(Path("engine/cli/tests/fixtures/valid/loadtest.yaml"))
+          print(json.dumps(render_values(build_plan(cfg, "ci", now=0), Path("engine/k6"), None)))
+          PY
+      - name: helm lint
+        run: helm lint --strict engine/chart/loadtest-env -f "$RUNNER_TEMP/values.json"
+      - name: Chart tests
+        run: .venv/bin/pytest engine/cli/tests/test_chart.py -q
+
+  terraform:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+      # setup-trivy has no major tag; pinned to the v0.3.1 commit.
+      - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+      - name: terraform fmt
+        run: terraform fmt -check -recursive infra
+      # Validation never configures providers, so local-kind needs no cluster or kubeconfig.
+      - name: terraform validate (every module and env)
+        run: |
+          for dir in infra/modules/*/ infra/envs/*/; do
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+            echo "::endgroup::"
+          done
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }} # plugin download without rate limiting
+        run: |
+          tflint --init
+          tflint --recursive
+      - name: trivy config
+        run: trivy config --exit-code 1 --severity HIGH,CRITICAL infra

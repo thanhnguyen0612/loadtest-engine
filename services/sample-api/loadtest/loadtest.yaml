@@ -1,0 +1,22 @@
+service:
+  name: sample-api
+  team: orders
+load:
+  size: S
+  endpoints:
+    - "GET /items"
+    - method: POST
+      path: /orders
+      body: {item_id: 1, quantity: 2}
+thresholds:
+  p95_ms: 300
+  error_rate: 0.01
+dependencies:
+  database:
+    engine: postgres
+    seed: seed.sql
+  services:
+    - name: payments-api
+      mode: stub
+      latency_ms: 80
+      stubs: stubs/payments-api
