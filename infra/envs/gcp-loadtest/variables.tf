@@ -36,7 +36,7 @@ variable "master_authorized_cidrs" {
 }
 
 variable "max_nodes" {
-  description = "Autoscaling ceiling per zone of the spot load-test pool."
+  description = "Autoscaling ceiling (total across zones) of the spot load-test pool."
   type        = number
   default     = 6
 }

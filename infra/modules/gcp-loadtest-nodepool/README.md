@@ -2,7 +2,7 @@
 
 Spot node pool that runs only load-test workloads.
 
-- Spot VMs, autoscaling **0 → `max_nodes`** (per zone), so an idle platform costs nothing.
+- Spot VMs, autoscaling **0 → `max_nodes`** (a cluster-wide total, not per zone), so an idle platform costs nothing.
 - Taint `dedicated=loadtest:NoSchedule` and label `workload=loadtest`; test pods opt in with
   `engine/chart/loadtest-env/values-gke.example.yaml` (`loadtest run --scheduling FILE`).
 - Dedicated least-privilege node service account (log/metric writer, Artifact Registry
@@ -17,7 +17,7 @@ Spot node pool that runs only load-test workloads.
 | `location` | — (required) | Cluster location. |
 | `cluster` | — (required) | Cluster name. |
 | `machine_type` | `e2-standard-4` | Node machine type. |
-| `max_nodes` | `6` | Autoscaling ceiling per zone. |
+| `max_nodes` | `6` | Autoscaling ceiling, total across zones. |
 | `labels` | `{}` | Resource labels (chargeback). |
 
 ## Outputs

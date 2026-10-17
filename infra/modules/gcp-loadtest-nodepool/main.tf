@@ -1,7 +1,7 @@
 # Least-privilege identity for the nodes (not the default compute service account).
 resource "google_service_account" "nodes" {
   project      = var.project_id
-  account_id   = "${var.cluster}-nodes"
+  account_id   = "${substr(var.cluster, 0, 24)}-nodes" # GCP limit: 6-30 chars
   display_name = "Load-test GKE nodes (${var.cluster})"
 }
 
@@ -24,11 +24,13 @@ resource "google_container_node_pool" "loadtest" {
   location = var.location
   cluster  = var.cluster
 
+  depends_on = [google_project_iam_member.nodes]
+
   # Scale-to-zero: no nodes (and no cost) while no test runs. ANY favours spot capacity.
   autoscaling {
-    min_node_count  = 0
-    max_node_count  = var.max_nodes
-    location_policy = "ANY"
+    total_min_node_count = 0
+    total_max_node_count = var.max_nodes
+    location_policy      = "ANY"
   }
 
   management {
