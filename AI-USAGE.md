@@ -59,7 +59,7 @@ The guardrail prompt (capacity, sizing, cost, prod) shaped most of the platform.
 
 | Check | What it covers |
 |---|---|
-| Test-first unit tests (pytest, 133 engine tests + 6 sample-service tests) | Each implementer had to show a failing run before writing code, then the passing run. Covers config validation, plan, values, reports, k6 job, orchestrator (with a fake runner), janitor. |
+| Test-first unit tests (pytest, 147 engine tests + 6 sample-service tests) | Each implementer had to show a failing run before writing code, then the passing run. Covers config validation, plan, values, reports, k6 job, orchestrator (with a fake runner), janitor. |
 | Independent reviewer per task | Found real defects that the implementer's own tests passed. See below. |
 | Drift tests | Tie constants in Terraform, the chart and the janitor to `limits.py`, so the caps and pinned images cannot diverge. |
 | `helm lint --strict` + chart tests | Chart rendered with values from the real CLI. |
