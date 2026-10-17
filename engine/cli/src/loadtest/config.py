@@ -121,13 +121,16 @@ def _check_name(label: str, value: str, errors: list[str]) -> None:
         errors.append(f"{label} {value!r} must be a DNS-1123 label (lowercase a-z, 0-9, '-')")
 
 
-def _check_file(label: str, rel: str | None, base: Path, errors: list[str]) -> None:
+def _check_file(label: str, rel: str | None, base: Path, errors: list[str],
+                directory: bool = False) -> None:
     if rel is None:
         return
     target = (base / rel).resolve()
     if not target.is_relative_to(base.resolve()):
         errors.append(f"{label} {rel!r} must stay inside the config directory")
-    elif not target.is_file():
+    elif directory and not target.is_dir():
+        errors.append(f"{label} directory not found: {rel}")
+    elif not directory and not target.is_file():
         errors.append(f"{label} file not found: {rel}")
 
 
@@ -180,7 +183,8 @@ def _semantic_errors(cfg: LoadTestConfig) -> list[str]:
         if not 0 <= dep.latency_ms <= limits.MAX_LATENCY_MS:
             errors.append(f"dependencies.services[{dep.name}].latency_ms {dep.latency_ms} "
                           f"must be between 0 and {limits.MAX_LATENCY_MS}")
-        _check_file(f"dependencies.services[{dep.name}].stubs", dep.stubs, cfg.base_dir, errors)
+        _check_file(f"dependencies.services[{dep.name}].stubs", dep.stubs, cfg.base_dir, errors,
+                    directory=True)
     return errors
 
 
